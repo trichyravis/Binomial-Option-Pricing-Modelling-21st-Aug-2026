@@ -64,6 +64,86 @@ st.markdown(
       .stButton>button, .stDownloadButton>button {{ border:1px solid {GOLD}; background:{GOLD}; color:{NAVY}; font-weight:800; border-radius:10px; }}
       .stButton>button:hover, .stDownloadButton>button:hover {{ border-color:{GOLD_2}; background:{GOLD_2}; color:{NAVY}; }}
       hr {{ border-color:rgba(212,175,55,.18); }}
+
+      /* ===== SIDEBAR INPUT VISIBILITY FIX ===== */
+      [data-testid="stSidebar"] div[data-baseweb="select"] > div,
+      [data-testid="stSidebar"] div[data-baseweb="select"] > div *,
+      [data-testid="stSidebar"] div[data-baseweb="input"] > div,
+      [data-testid="stSidebar"] div[data-baseweb="input"] > div *,
+      [data-testid="stSidebar"] div[data-baseweb="base-input"] *,
+      [data-testid="stSidebar"] input {{
+          color:{NAVY} !important;
+          -webkit-text-fill-color:{NAVY} !important;
+          opacity:1 !important;
+      }}
+      [data-testid="stSidebar"] div[data-baseweb="select"] > div,
+      [data-testid="stSidebar"] div[data-baseweb="input"] > div {{
+          background:{WHITE} !important;
+          border-color:rgba(212,175,55,.42) !important;
+      }}
+      [data-testid="stSidebar"] input::placeholder {{
+          color:#5F6F82 !important;
+          -webkit-text-fill-color:#5F6F82 !important;
+          opacity:1 !important;
+      }}
+      [data-testid="stSidebar"] button[step] *,
+      [data-testid="stSidebar"] div[data-baseweb="input"] button *,
+      [data-testid="stSidebar"] div[data-baseweb="select"] svg {{
+          color:{NAVY} !important;
+          fill:{NAVY} !important;
+      }}
+      /* keep labels/radio text light on navy */
+      [data-testid="stSidebar"] [role="radiogroup"] label *,
+      [data-testid="stSidebar"] label p {{
+          color:{CREAM} !important;
+          -webkit-text-fill-color:{CREAM} !important;
+      }}
+      /* dropdown menu is rendered outside the sidebar */
+      div[data-baseweb="popover"] ul,
+      div[data-baseweb="popover"] li,
+      div[data-baseweb="popover"] li *,
+      div[role="listbox"], div[role="listbox"] * {{
+          color:{NAVY} !important;
+          -webkit-text-fill-color:{NAVY} !important;
+      }}
+
+      /* ===== MAIN PAGE TAB VISIBILITY FIX ===== */
+      .stTabs [data-baseweb="tab-list"] {{
+          gap:8px !important;
+          background:rgba(4,16,30,.72) !important;
+          padding:7px !important;
+          border:1px solid rgba(212,175,55,.22);
+          border-radius:14px;
+      }}
+      .stTabs button[data-baseweb="tab"] {{
+          background:#12395F !important;
+          border:1px solid rgba(212,175,55,.26) !important;
+          border-radius:10px !important;
+          padding:9px 14px !important;
+      }}
+      .stTabs button[data-baseweb="tab"] *,
+      .stTabs button[data-baseweb="tab"] p,
+      .stTabs button[data-baseweb="tab"] span {{
+          color:{CREAM} !important;
+          -webkit-text-fill-color:{CREAM} !important;
+          font-weight:750 !important;
+          opacity:1 !important;
+      }}
+      .stTabs button[data-baseweb="tab"]:hover {{
+          background:#1B4C78 !important;
+          border-color:{GOLD_2} !important;
+      }}
+      .stTabs button[data-baseweb="tab"][aria-selected="true"] {{
+          background:{GOLD_2} !important;
+          border-color:{GOLD_2} !important;
+      }}
+      .stTabs button[data-baseweb="tab"][aria-selected="true"] *,
+      .stTabs button[data-baseweb="tab"][aria-selected="true"] p,
+      .stTabs button[data-baseweb="tab"][aria-selected="true"] span {{
+          color:{NAVY} !important;
+          -webkit-text-fill-color:{NAVY} !important;
+          font-weight:850 !important;
+      }}
     </style>
     """,
     unsafe_allow_html=True,
