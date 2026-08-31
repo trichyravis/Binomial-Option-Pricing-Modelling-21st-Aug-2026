@@ -1,4 +1,3 @@
-
 # =============================================================================
 # The Mountain Path Academy — Binomial Option Pricing Model
 # Educational Streamlit App  |  Prof. V. Ravichandran
@@ -51,7 +50,6 @@ LINK_GH      = "https://github.com/trichyravis"
 # GLOBAL STYLE
 # -----------------------------------------------------------------------------
 st.html(f"""
-st.markdown(f"""
 <style>
   .stApp {{
     background: linear-gradient(135deg,#1a2332,#243447,#2a3f5f) fixed;
@@ -78,77 +76,67 @@ st.markdown(f"""
   }}
   [data-testid="stSidebar"] hr {{ border-color: rgba(255,215,0,.18); }}
 
-  /* Sidebar inputs use a light control surface: never inherit the sidebar's
-     pale text colour, otherwise selected values disappear on white. */
+  /* Keep selected sidebar values readable: Streamlit uses light form fields
+     inside this dark sidebar, so their values must not inherit pale text. */
   [data-testid="stSidebar"] [data-baseweb="select"] > div,
   [data-testid="stSidebar"] [data-baseweb="input"] > div {{
-  [data-testid="stSidebar"] div[data-baseweb="select"],
-  [data-testid="stSidebar"] div[data-baseweb="select"] > div,
-  [data-testid="stSidebar"] div[data-baseweb="input"],
-  [data-testid="stSidebar"] div[data-baseweb="input"] > div {{
     background: #f7f9fc !important;
-    border-color: rgba(255,215,0,.55) !important;
+    border-color: #ffd700 !important;
+    border-radius: 8px !important;
   }}
   [data-testid="stSidebar"] [data-baseweb="select"] input,
   [data-testid="stSidebar"] [data-baseweb="input"] input,
-  [data-testid="stSidebar"] input[type="number"] {{
+  [data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
     color: #10213d !important;
     -webkit-text-fill-color: #10213d !important;
     opacity: 1 !important;
-    font-weight: 600 !important;
+    font-weight: 700 !important;
   }}
-  [data-baseweb="popover"] [role="option"],
-  [data-baseweb="popover"] [role="option"] * {{
+  [role="listbox"] [role="option"],
+  [role="listbox"] [role="option"] * {{
     color: #10213d !important;
     -webkit-text-fill-color: #10213d !important;
-    background: #f7f9fc;
   }}
-  [data-baseweb="popover"] [role="option"][aria-selected="true"] {{
+  [role="listbox"] [aria-selected="true"] {{
     background: #dce9f8 !important;
     color: #003366 !important;
-    font-weight: 700;
+    font-weight: 700 !important;
   }}
 
   /* -------- Tabs (gold pills) -------- */
-  .stTabs [data-baseweb="tab-list"] {{
   .stTabs [data-baseweb="tab-list"],
   [data-testid="stTabs"] [role="tablist"] {{
     gap: 6px; background: rgba(17,34,64,.55); padding: 6px; border-radius: 12px;
     border: 1px solid rgba(255,215,0,.18); flex-wrap: wrap;
   }}
-  .stTabs [data-baseweb="tab"] {{
   .stTabs [data-baseweb="tab"],
   [data-testid="stTabs"] button[role="tab"],
   button[data-baseweb="tab"] {{
-    background: rgba(10,29,55,.82) !important;
-    border: 1px solid rgba(173,216,230,.32) !important;
+    background: #10213d !important;
+    border: 1px solid rgba(173,216,230,.52) !important;
     border-radius: 8px;
     padding: 8px 16px; font-weight: 700; font-size: 14px;
-    color: #f4f8ff !important; -webkit-text-fill-color: #f4f8ff !important;
+    color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
     opacity: 1 !important;
   }}
-  .stTabs [data-baseweb="tab"] * {{
   .stTabs [data-baseweb="tab"] *,
   [data-testid="stTabs"] button[role="tab"] *,
   button[data-baseweb="tab"] * {{
-    color: #f4f8ff !important; -webkit-text-fill-color: #f4f8ff !important;
+    color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
     opacity: 1 !important;
   }}
-  .stTabs [data-baseweb="tab"]:hover {{
   .stTabs [data-baseweb="tab"]:hover,
   [data-testid="stTabs"] button[role="tab"]:hover,
   button[data-baseweb="tab"]:hover {{
-    background: rgba(0,77,128,.95) !important;
-    border-color: rgba(255,215,0,.75) !important;
+    background: #004d80 !important;
+    border-color: {GOLD} !important;
   }}
-  .stTabs [aria-selected="true"] {{
   .stTabs [aria-selected="true"],
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
   button[data-baseweb="tab"][aria-selected="true"] {{
     background: {GOLD} !important;
     border-color: {GOLD} !important;
   }}
-  .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] * {{
   .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] *,
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"] *,
@@ -202,7 +190,6 @@ st.markdown(f"""
   .small-muted {{ color:{MUTED}; -webkit-text-fill-color:{MUTED}; font-size:.86rem; }}
 </style>
 """)
-""", unsafe_allow_html=True)
 
 
 # Small helpers -----------------------------------------------------------------
