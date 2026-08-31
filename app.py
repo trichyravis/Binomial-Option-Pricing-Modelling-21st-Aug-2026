@@ -64,7 +64,8 @@ st.html(f"""
     background: linear-gradient(180deg,#0d1b30,#112240 70%,#0d1b30);
     border-right: 1px solid rgba(255,215,0,.22);
   }}
-  [data-testid="stSidebar"] * {{ color:{TXT}; }}
+  /* Do not colour every sidebar descendant: select boxes and number fields
+     have white backgrounds, so they need their normal dark value text. */
   [data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,
   [data-testid="stSidebar"] h3,[data-testid="stSidebar"] h4 {{
     color:{GOLD} !important; -webkit-text-fill-color:{GOLD} !important;
@@ -111,6 +112,8 @@ st.html(f"""
   }}
   .stTabs [data-baseweb="tab"],
   [data-testid="stTabs"] button[role="tab"],
+  [data-testid="stTabs"] [role="tab"],
+  [data-testid="stTabs"] [data-testid="stTab"],
   button[data-baseweb="tab"] {{
     background: #10213d !important;
     border: 1px solid rgba(173,216,230,.52) !important;
@@ -121,18 +124,24 @@ st.html(f"""
   }}
   .stTabs [data-baseweb="tab"] *,
   [data-testid="stTabs"] button[role="tab"] *,
+  [data-testid="stTabs"] [role="tab"] *,
+  [data-testid="stTabs"] [data-testid="stTab"] *,
+  [data-testid="stTabs"] [role="tab"] p,
+  [data-testid="stTabs"] [role="tab"] span,
   button[data-baseweb="tab"] * {{
     color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
     opacity: 1 !important;
   }}
   .stTabs [data-baseweb="tab"]:hover,
   [data-testid="stTabs"] button[role="tab"]:hover,
+  [data-testid="stTabs"] [role="tab"]:hover,
   button[data-baseweb="tab"]:hover {{
     background: #004d80 !important;
     border-color: {GOLD} !important;
   }}
   .stTabs [aria-selected="true"],
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"],
   button[data-baseweb="tab"][aria-selected="true"] {{
     background: {GOLD} !important;
     border-color: {GOLD} !important;
@@ -140,6 +149,8 @@ st.html(f"""
   .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] *,
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
   [data-testid="stTabs"] button[role="tab"][aria-selected="true"] *,
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"] *,
   button[data-baseweb="tab"][aria-selected="true"],
   button[data-baseweb="tab"][aria-selected="true"] * {{
     color: {BLUE} !important; -webkit-text-fill-color: {BLUE} !important;
