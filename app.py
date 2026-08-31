@@ -1,3 +1,4 @@
+
 # =============================================================================
 # The Mountain Path Academy — Binomial Option Pricing Model
 # Educational Streamlit App  |  Prof. V. Ravichandran
@@ -76,20 +77,58 @@ st.html(f"""
   }}
   [data-testid="stSidebar"] hr {{ border-color: rgba(255,215,0,.18); }}
 
+  /* Sidebar inputs use a light control surface: never inherit the sidebar's
+     pale text colour, otherwise selected values disappear on white. */
+  [data-testid="stSidebar"] [data-baseweb="select"] > div,
+  [data-testid="stSidebar"] [data-baseweb="input"] > div {{
+    background: #f7f9fc !important;
+    border-color: rgba(255,215,0,.55) !important;
+  }}
+  [data-testid="stSidebar"] [data-baseweb="select"] input,
+  [data-testid="stSidebar"] [data-baseweb="input"] input,
+  [data-testid="stSidebar"] input[type="number"] {{
+    color: #10213d !important;
+    -webkit-text-fill-color: #10213d !important;
+    opacity: 1 !important;
+    font-weight: 600 !important;
+  }}
+  [data-baseweb="popover"] [role="option"],
+  [data-baseweb="popover"] [role="option"] * {{
+    color: #10213d !important;
+    -webkit-text-fill-color: #10213d !important;
+    background: #f7f9fc;
+  }}
+  [data-baseweb="popover"] [role="option"][aria-selected="true"] {{
+    background: #dce9f8 !important;
+    color: #003366 !important;
+    font-weight: 700;
+  }}
+
   /* -------- Tabs (gold pills) -------- */
   .stTabs [data-baseweb="tab-list"] {{
     gap: 6px; background: rgba(17,34,64,.55); padding: 6px; border-radius: 12px;
     border: 1px solid rgba(255,215,0,.18); flex-wrap: wrap;
   }}
   .stTabs [data-baseweb="tab"] {{
-    background: transparent; border-radius: 8px;
-    padding: 8px 16px; font-weight: 600; font-size: 14px;
-    color: #c7d3e8 !important; -webkit-text-fill-color: #c7d3e8 !important;
+    background: rgba(10,29,55,.82) !important;
+    border: 1px solid rgba(173,216,230,.32) !important;
+    border-radius: 8px;
+    padding: 8px 16px; font-weight: 700; font-size: 14px;
+    color: #f4f8ff !important; -webkit-text-fill-color: #f4f8ff !important;
+    opacity: 1 !important;
   }}
   .stTabs [data-baseweb="tab"] * {{
-    color: #c7d3e8 !important; -webkit-text-fill-color: #c7d3e8 !important;
+    color: #f4f8ff !important; -webkit-text-fill-color: #f4f8ff !important;
+    opacity: 1 !important;
   }}
-  .stTabs [aria-selected="true"] {{ background: {GOLD} !important; }}
+  .stTabs [data-baseweb="tab"]:hover {{
+    background: rgba(0,77,128,.95) !important;
+    border-color: rgba(255,215,0,.75) !important;
+  }}
+  .stTabs [aria-selected="true"] {{
+    background: {GOLD} !important;
+    border-color: {GOLD} !important;
+  }}
   .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] * {{
     color: {BLUE} !important; -webkit-text-fill-color: {BLUE} !important;
   }}
