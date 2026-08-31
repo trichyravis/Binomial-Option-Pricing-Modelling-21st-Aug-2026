@@ -51,6 +51,7 @@ LINK_GH      = "https://github.com/trichyravis"
 # GLOBAL STYLE
 # -----------------------------------------------------------------------------
 st.html(f"""
+st.markdown(f"""
 <style>
   .stApp {{
     background: linear-gradient(135deg,#1a2332,#243447,#2a3f5f) fixed;
@@ -81,6 +82,10 @@ st.html(f"""
      pale text colour, otherwise selected values disappear on white. */
   [data-testid="stSidebar"] [data-baseweb="select"] > div,
   [data-testid="stSidebar"] [data-baseweb="input"] > div {{
+  [data-testid="stSidebar"] div[data-baseweb="select"],
+  [data-testid="stSidebar"] div[data-baseweb="select"] > div,
+  [data-testid="stSidebar"] div[data-baseweb="input"],
+  [data-testid="stSidebar"] div[data-baseweb="input"] > div {{
     background: #f7f9fc !important;
     border-color: rgba(255,215,0,.55) !important;
   }}
@@ -106,10 +111,15 @@ st.html(f"""
 
   /* -------- Tabs (gold pills) -------- */
   .stTabs [data-baseweb="tab-list"] {{
+  .stTabs [data-baseweb="tab-list"],
+  [data-testid="stTabs"] [role="tablist"] {{
     gap: 6px; background: rgba(17,34,64,.55); padding: 6px; border-radius: 12px;
     border: 1px solid rgba(255,215,0,.18); flex-wrap: wrap;
   }}
   .stTabs [data-baseweb="tab"] {{
+  .stTabs [data-baseweb="tab"],
+  [data-testid="stTabs"] button[role="tab"],
+  button[data-baseweb="tab"] {{
     background: rgba(10,29,55,.82) !important;
     border: 1px solid rgba(173,216,230,.32) !important;
     border-radius: 8px;
@@ -118,18 +128,32 @@ st.html(f"""
     opacity: 1 !important;
   }}
   .stTabs [data-baseweb="tab"] * {{
+  .stTabs [data-baseweb="tab"] *,
+  [data-testid="stTabs"] button[role="tab"] *,
+  button[data-baseweb="tab"] * {{
     color: #f4f8ff !important; -webkit-text-fill-color: #f4f8ff !important;
     opacity: 1 !important;
   }}
   .stTabs [data-baseweb="tab"]:hover {{
+  .stTabs [data-baseweb="tab"]:hover,
+  [data-testid="stTabs"] button[role="tab"]:hover,
+  button[data-baseweb="tab"]:hover {{
     background: rgba(0,77,128,.95) !important;
     border-color: rgba(255,215,0,.75) !important;
   }}
   .stTabs [aria-selected="true"] {{
+  .stTabs [aria-selected="true"],
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+  button[data-baseweb="tab"][aria-selected="true"] {{
     background: {GOLD} !important;
     border-color: {GOLD} !important;
   }}
   .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] * {{
+  .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] *,
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"] *,
+  button[data-baseweb="tab"][aria-selected="true"],
+  button[data-baseweb="tab"][aria-selected="true"] * {{
     color: {BLUE} !important; -webkit-text-fill-color: {BLUE} !important;
   }}
   .stTabs [data-baseweb="tab"] p {{ font-size: 14px; font-weight: 600; }}
@@ -178,6 +202,7 @@ st.html(f"""
   .small-muted {{ color:{MUTED}; -webkit-text-fill-color:{MUTED}; font-size:.86rem; }}
 </style>
 """)
+""", unsafe_allow_html=True)
 
 
 # Small helpers -----------------------------------------------------------------
