@@ -107,42 +107,69 @@ st.markdown(
           -webkit-text-fill-color:{NAVY} !important;
       }}
 
-      /* ===== MAIN PAGE TAB VISIBILITY FIX ===== */
-      .stTabs [data-baseweb="tab-list"] {{
-          gap:8px !important;
-          background:rgba(4,16,30,.72) !important;
-          padding:7px !important;
-          border:1px solid rgba(212,175,55,.22);
-          border-radius:14px;
+      /* ===== MPA HORIZONTAL NAVIGATION BAR ===== */
+      .stTabs {{
+          margin-top:12px !important;
       }}
+      .stTabs [data-baseweb="tab-list"] {{
+          display:flex !important;
+          align-items:stretch !important;
+          gap:0 !important;
+          width:100% !important;
+          background:#26384F !important;
+          padding:0 !important;
+          border:0 !important;
+          border-radius:0 !important;
+          border-bottom:3px solid rgba(150,166,190,.18) !important;
+          overflow-x:auto !important;
+          scrollbar-width:none;
+      }}
+      .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {{ display:none; }}
       .stTabs button[data-baseweb="tab"] {{
-          background:#12395F !important;
-          border:1px solid rgba(212,175,55,.26) !important;
-          border-radius:10px !important;
-          padding:9px 14px !important;
+          flex:0 0 auto !important;
+          min-height:54px !important;
+          background:transparent !important;
+          border:0 !important;
+          border-radius:0 !important;
+          padding:0 18px !important;
+          margin:0 !important;
+          box-shadow:none !important;
       }}
       .stTabs button[data-baseweb="tab"] *,
       .stTabs button[data-baseweb="tab"] p,
       .stTabs button[data-baseweb="tab"] span {{
-          color:{CREAM} !important;
-          -webkit-text-fill-color:{CREAM} !important;
-          font-weight:750 !important;
+          color:#F4F7FB !important;
+          -webkit-text-fill-color:#F4F7FB !important;
+          font-size:1.02rem !important;
+          font-weight:650 !important;
+          line-height:1.2 !important;
           opacity:1 !important;
+          white-space:nowrap !important;
       }}
       .stTabs button[data-baseweb="tab"]:hover {{
-          background:#1B4C78 !important;
-          border-color:{GOLD_2} !important;
+          background:rgba(255,255,255,.07) !important;
+      }}
+      .stTabs button[data-baseweb="tab"]:hover *,
+      .stTabs button[data-baseweb="tab"]:hover p,
+      .stTabs button[data-baseweb="tab"]:hover span {{
+          color:#FFFFFF !important;
+          -webkit-text-fill-color:#FFFFFF !important;
       }}
       .stTabs button[data-baseweb="tab"][aria-selected="true"] {{
           background:{GOLD_2} !important;
-          border-color:{GOLD_2} !important;
+          border:0 !important;
+          box-shadow:none !important;
       }}
       .stTabs button[data-baseweb="tab"][aria-selected="true"] *,
       .stTabs button[data-baseweb="tab"][aria-selected="true"] p,
       .stTabs button[data-baseweb="tab"][aria-selected="true"] span {{
           color:{NAVY} !important;
           -webkit-text-fill-color:{NAVY} !important;
-          font-weight:850 !important;
+          font-weight:800 !important;
+      }}
+      /* hide BaseWeb's default underline because the gold active block is the indicator */
+      .stTabs [data-baseweb="tab-highlight"] {{
+          display:none !important;
       }}
     </style>
     """,
