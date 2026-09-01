@@ -1,1128 +1,950 @@
 
-
-"""
-================================================================================
-INDIA GDP PROJECTION FY2026-27 - STREAMLIT INTERACTIVE APP
-================================================================================
-
-Interactive financial modeling dashboard for India's FY2026-27 GDP forecast
-Built with Streamlit for easy deployment and customization
-
-Author: Prof. V. Ravichandran
-The Mountain Path - World of Finance
-
-Features:
-- Interactive scenario builder
-- Real-time sensitivity analysis
-- Monte Carlo simulations
-- Professional visualizations
-- Downloadable results
-================================================================================
-"""
-
-import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
-from scipy import stats
+# =============================================================================
+# The Mountain Path Academy — Binomial Option Pricing Model
+# Educational Streamlit App  |  Prof. V. Ravichandran
+# https://themountainpathacademy.com
+# -----------------------------------------------------------------------------
+# Design system matched to the India–US Bond Yield Spread app
+# (navy + gold "World of Finance" theme), with a Black–Scholes benchmark added.
+# =============================================================================
 import io
-from datetime import datetime
+import math
+from pathlib import Path
 
-# Data vintage: latest releases available on 1 September 2026.
-# All growth rates in this app refer to India's fiscal year (April-March),
-# avoiding comparisons between fiscal-year and calendar-year forecasts.
-FORECAST_PERIOD = "FY2026-27"
-DATA_AS_OF = "1 September 2026"
-BASE_GDP_GROWTH = 6.60
-BASE_OIL_PRICE = 89.27  # IMF July 2026 WEO assumption, 2026 average, USD/bbl
-BASE_CPI_INFLATION = 5.00  # RBI August 2026 projection for FY2026-27
-BASE_CAPEX_GROWTH = 11.50  # Union Budget central-government capex growth
+import numpy as np
+import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
-SOURCES = {
-    "MoSPI": "https://mospi.gov.in/uploads/latestReleases/latest_release_1772189865181_f040336d-bc57-4aed-b80f-586d9ccb279e_Press_Note_on_New_Series_of_GDP_Estimates_with_Base_Year_2022-23_27022026.pdf",
-    "RBI": "https://www.rbi.org.in/",
-    "IMF": "https://www.imf.org/en/publications/weo/issues/2026/07/08/world-economic-outlook-update-july-2026",
-    "ADB": "https://www.adb.org/outlook/editions/july-2026",
-    "World Bank": "https://www.worldbank.org/en/news/press-release/2026/04/09/india-remains-among-the-fastest-growing-economies",
-    "OECD": "https://www.oecd.org/en/publications/oecd-economic-outlook-volume-2026-issue-1_8be0dba6-en.html",
-}
+APP_DIR = Path(__file__).resolve().parent
+ASSETS = APP_DIR / "assets"
 
-# ============================================================================
-# PAGE CONFIGURATION
-# ============================================================================
-
+# -----------------------------------------------------------------------------
+# PAGE CONFIG
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="India GDP FY2026-27 Forecast",
-    page_icon="📊",
+    page_title="Binomial Option Pricing Model | The Mountain Path Academy",
+    page_icon="📈",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
 
-# Brand palette — matched to the attached Binomial Option Pricing app
-GOLD = "#FFD700"
-BLUE = "#003366"
-MID = "#004d80"
-CARD = "#112240"
-TXT = "#e6f1ff"
+# -----------------------------------------------------------------------------
+# BRAND PALETTE  (identical to the Bond Yield Spread app)
+# -----------------------------------------------------------------------------
+GOLD  = "#FFD700"
+BLUE  = "#003366"
+MID   = "#004d80"
+CARD  = "#112240"
+TXT   = "#e6f1ff"
 MUTED = "#8892b0"
-LB = "#ADD8E6"
+GRN   = "#28a745"
+RED   = "#dc3545"
+LB    = "#ADD8E6"
+AMBER = "#f0ad4e"
+
 LINK_ACADEMY = "https://themountainpathacademy.com"
-LINK_LI = "https://www.linkedin.com/in/trichyravis"
-LINK_GH = "https://github.com/trichyravis"
+LINK_LI      = "https://www.linkedin.com/in/trichyravis"
+LINK_GH      = "https://github.com/trichyravis"
 
-# Global design system — verbatim visual language from the reference app
-st.markdown(f"""
+# -----------------------------------------------------------------------------
+# GLOBAL STYLE
+# -----------------------------------------------------------------------------
+st.html(f"""
 <style>
-  .stApp {{ background:linear-gradient(135deg,#1a2332,#243447,#2a3f5f) fixed; }}
-  #MainMenu, header[data-testid="stHeader"], footer {{ visibility:hidden; }}
-  .block-container {{ padding-top:1.2rem;padding-bottom:2rem;max-width:1280px; }}
-  h1,h2,h3,h4,p,li {{ color:{TXT};letter-spacing:.2px; }}
-  [data-testid="stCaptionContainer"] p {{ color:{MUTED}!important; }}
-  [data-testid="stSidebar"] {{ background:linear-gradient(180deg,#0d1b30,#112240 70%,#0d1b30);border-right:1px solid rgba(255,215,0,.22); }}
-  [data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,[data-testid="stSidebar"] h3,[data-testid="stSidebar"] h4 {{ color:{GOLD}!important;-webkit-text-fill-color:{GOLD}!important;font-size:1rem;text-transform:uppercase;letter-spacing:1.2px; }}
-  [data-testid="stSidebar"] label,[data-testid="stSidebar"] [data-testid="stWidgetLabel"] * {{ color:{TXT}!important;-webkit-text-fill-color:{TXT}!important;font-weight:600; }}
-  [data-testid="stSidebar"] hr {{ border-color:rgba(255,215,0,.18); }}
-  [data-testid="stSidebar"] [data-baseweb="select"] > div,[data-testid="stSidebar"] [data-baseweb="input"] > div {{ background:#f7f9fc!important;border-color:{GOLD}!important;border-radius:8px!important; }}
-  [data-testid="stSidebar"] [data-baseweb="select"] input,[data-testid="stSidebar"] [data-baseweb="input"] input {{ color:#10213d!important;-webkit-text-fill-color:#10213d!important;font-weight:700!important; }}
-  [data-testid="stSidebar"] [data-testid="stRadio"] label {{ background:#10213d;border:1px solid rgba(173,216,230,.35);border-radius:8px;padding:7px 9px;margin:2px 0; }}
-  [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {{ border-color:{GOLD};background:{MID}; }}
-  .stTabs [data-baseweb="tab-list"] {{ gap:6px;background:rgba(17,34,64,.55);padding:6px;border-radius:12px;border:1px solid rgba(255,215,0,.18);flex-wrap:wrap; }}
-  .stTabs [data-baseweb="tab"] {{ background:#10213d!important;border:1px solid rgba(173,216,230,.52)!important;border-radius:8px;padding:8px 16px;font-weight:700;color:#fff!important; }}
-  .stTabs [data-baseweb="tab"] * {{ color:#fff!important;-webkit-text-fill-color:#fff!important; }}
-  .stTabs [aria-selected="true"] {{ background:{GOLD}!important;border-color:{GOLD}!important; }}
-  .stTabs [aria-selected="true"] * {{ color:{BLUE}!important;-webkit-text-fill-color:{BLUE}!important; }}
-  [data-testid="stWidgetLabel"] *,.stRadio * {{ color:{TXT}!important;-webkit-text-fill-color:{TXT}!important; }}
-  .stSlider [data-baseweb="slider"] div[role="slider"] {{ background:{GOLD}; }}
-  .stButton button,.stDownloadButton button {{ background:{GOLD}!important;border:1px solid {GOLD}!important;border-radius:10px!important;font-weight:800!important; }}
-  .stButton button *,.stDownloadButton button * {{ color:{BLUE}!important;-webkit-text-fill-color:{BLUE}!important; }}
-  div[data-testid="stDataFrame"] {{ border:1px solid rgba(255,215,0,.20);border-radius:12px;overflow:hidden; }}
-  [data-testid="stMetric"] {{ background:{CARD};border:1px solid rgba(255,215,0,.16);border-radius:14px;padding:15px 16px;box-shadow:0 4px 18px rgba(0,0,0,.28); }}
-  [data-testid="stMetricLabel"] * {{ color:{MUTED}!important;-webkit-text-fill-color:{MUTED}!important;text-transform:uppercase;letter-spacing:1px;font-size:11px!important; }}
-  [data-testid="stMetricValue"] * {{ color:{GOLD}!important;-webkit-text-fill-color:{GOLD}!important;font-weight:800; }}
-  .metric-box,.scenario-box {{ background:{CARD};border:1px solid rgba(255,215,0,.16);border-radius:14px;padding:18px 20px;margin:10px 0;box-shadow:0 4px 18px rgba(0,0,0,.28);color:{TXT};min-height:118px; }}
-  .metric-box strong,.scenario-box strong {{ color:{MUTED};text-transform:uppercase;letter-spacing:1px;font-size:11px; }}
-  .metric-box span,.scenario-box span {{ color:{GOLD}!important;-webkit-text-fill-color:{GOLD}!important;font-weight:800; }}
-  .scenario-box small {{ color:{LB}; }}
-  .upside {{ border-left:4px solid #28a745; }} .base {{ border-left:4px solid {GOLD}; }} .downside {{ border-left:4px solid #dc3545; }}
-  [data-testid="stAlert"] {{ background:{CARD};border:1px solid rgba(255,215,0,.25);color:{TXT};border-radius:12px; }}
-  hr {{ border-color:rgba(255,215,0,.18)!important; }}
+  .stApp {{
+    background: linear-gradient(135deg,#1a2332,#243447,#2a3f5f) fixed;
+  }}
+  #MainMenu, header[data-testid="stHeader"], footer {{ visibility: hidden; }}
+  .block-container {{ padding-top: 1.2rem; padding-bottom: 2rem; max-width: 1280px; }}
+
+  h1,h2,h3,h4 {{ color:{TXT}; letter-spacing:.2px; }}
+
+  /* -------- Sidebar (kept, restyled navy + gold) -------- */
+  [data-testid="stSidebar"] {{
+    background: linear-gradient(180deg,#0d1b30,#112240 70%,#0d1b30);
+    border-right: 1px solid rgba(255,215,0,.22);
+  }}
+  /* Do not colour every sidebar descendant: select boxes and number fields
+     have white backgrounds, so they need their normal dark value text. */
+  [data-testid="stSidebar"] h1,[data-testid="stSidebar"] h2,
+  [data-testid="stSidebar"] h3,[data-testid="stSidebar"] h4 {{
+    color:{GOLD} !important; -webkit-text-fill-color:{GOLD} !important;
+    font-size:1rem; text-transform:uppercase; letter-spacing:1.2px;
+  }}
+  [data-testid="stSidebar"] label,
+  [data-testid="stSidebar"] [data-testid="stWidgetLabel"] * {{
+    color:{TXT} !important; -webkit-text-fill-color:{TXT} !important; font-weight:600;
+  }}
+  [data-testid="stSidebar"] hr {{ border-color: rgba(255,215,0,.18); }}
+
+  /* Keep selected sidebar values readable: Streamlit uses light form fields
+     inside this dark sidebar, so their values must not inherit pale text. */
+  [data-testid="stSidebar"] [data-baseweb="select"] > div,
+  [data-testid="stSidebar"] [data-baseweb="input"] > div {{
+    background: #f7f9fc !important;
+    border-color: #ffd700 !important;
+    border-radius: 8px !important;
+  }}
+  [data-testid="stSidebar"] [data-baseweb="select"] input,
+  [data-testid="stSidebar"] [data-baseweb="input"] input,
+  [data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
+    color: #10213d !important;
+    -webkit-text-fill-color: #10213d !important;
+    opacity: 1 !important;
+    font-weight: 700 !important;
+  }}
+  [role="listbox"] [role="option"],
+  [role="listbox"] [role="option"] * {{
+    color: #10213d !important;
+    -webkit-text-fill-color: #10213d !important;
+  }}
+  [role="listbox"] [aria-selected="true"] {{
+    background: #dce9f8 !important;
+    color: #003366 !important;
+    font-weight: 700 !important;
+  }}
+
+  /* -------- Tabs (gold pills) -------- */
+  .stTabs [data-baseweb="tab-list"],
+  [data-testid="stTabs"] [role="tablist"] {{
+    gap: 6px; background: rgba(17,34,64,.55); padding: 6px; border-radius: 12px;
+    border: 1px solid rgba(255,215,0,.18); flex-wrap: wrap;
+  }}
+  .stTabs [data-baseweb="tab"],
+  [data-testid="stTabs"] button[role="tab"],
+  [data-testid="stTabs"] [role="tab"],
+  [data-testid="stTabs"] [data-testid="stTab"],
+  button[data-baseweb="tab"] {{
+    background: #10213d !important;
+    border: 1px solid rgba(173,216,230,.52) !important;
+    border-radius: 8px;
+    padding: 8px 16px; font-weight: 700; font-size: 14px;
+    color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+  }}
+  .stTabs [data-baseweb="tab"] *,
+  [data-testid="stTabs"] button[role="tab"] *,
+  [data-testid="stTabs"] [role="tab"] *,
+  [data-testid="stTabs"] [data-testid="stTab"] *,
+  [data-testid="stTabs"] [role="tab"] p,
+  [data-testid="stTabs"] [role="tab"] span,
+  button[data-baseweb="tab"] * {{
+    color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+    opacity: 1 !important;
+  }}
+  .stTabs [data-baseweb="tab"]:hover,
+  [data-testid="stTabs"] button[role="tab"]:hover,
+  [data-testid="stTabs"] [role="tab"]:hover,
+  button[data-baseweb="tab"]:hover {{
+    background: #004d80 !important;
+    border-color: {GOLD} !important;
+  }}
+  .stTabs [aria-selected="true"],
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"],
+  button[data-baseweb="tab"][aria-selected="true"] {{
+    background: {GOLD} !important;
+    border-color: {GOLD} !important;
+  }}
+  .stTabs [aria-selected="true"], .stTabs [aria-selected="true"] *,
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] button[role="tab"][aria-selected="true"] *,
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"],
+  [data-testid="stTabs"] [role="tab"][aria-selected="true"] *,
+  button[data-baseweb="tab"][aria-selected="true"],
+  button[data-baseweb="tab"][aria-selected="true"] * {{
+    color: {BLUE} !important; -webkit-text-fill-color: {BLUE} !important;
+  }}
+  .stTabs [data-baseweb="tab"] p {{ font-size: 14px; font-weight: 600; }}
+
+  /* Force native widget text readable */
+  [data-testid="stWidgetLabel"] *, .stRadio *, [data-baseweb="radio"] label * {{
+    color: {TXT} !important; -webkit-text-fill-color: {TXT} !important;
+  }}
+  .stSlider [data-baseweb="slider"] div[role="slider"] {{ background: {GOLD}; }}
+
+  /* Buttons / download button */
+  .stButton button, .stDownloadButton button {{
+    background: {GOLD} !important; border: 1px solid {GOLD} !important;
+    border-radius: 10px !important; font-weight: 800 !important;
+  }}
+  .stButton button p, .stButton button span, .stButton button div,
+  .stDownloadButton button p, .stDownloadButton button span, .stDownloadButton button div {{
+    color: {BLUE} !important; -webkit-text-fill-color: {BLUE} !important;
+  }}
+
+  /* Dataframes */
+  div[data-testid="stDataFrame"] {{
+    border:1px solid rgba(255,215,0,.20); border-radius:12px; overflow:hidden;
+  }}
+
+  /* Generic card look */
+  .mp-card {{
+    background: {CARD}; border: 1px solid rgba(255,215,0,.16);
+    border-radius: 14px; padding: 18px 20px; margin-bottom: 14px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.28); user-select: none;
+  }}
+  .mp-card:hover {{ border-color: rgba(255,215,0,.42); }}
+
+  .teach-card {{
+    background: linear-gradient(135deg,{CARD},#16203c);
+    border-left: 4px solid {GOLD}; border-radius: 12px;
+    padding: 15px 18px; margin: 10px 0; box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    color: {TXT};
+  }}
+  .formula-box {{
+    background: {CARD}; border: 1px solid rgba(255,215,0,.35);
+    border-radius: 14px; padding: 16px 20px; color: {TXT}; line-height:1.7;
+  }}
+  .gold {{ color:{GOLD}; -webkit-text-fill-color:{GOLD}; font-weight:700; }}
+  .lb   {{ color:{LB};  -webkit-text-fill-color:{LB}; }}
+  .small-muted {{ color:{MUTED}; -webkit-text-fill-color:{MUTED}; font-size:.86rem; }}
 </style>
-""", unsafe_allow_html=True)
-
-# ============================================================================
-# COLOR SCHEME
-# ============================================================================
-
-DARKBLUE = '#003366'
-LIGHTBLUE = '#ADD8E6'
-GOLDCOLOR = '#FFD700'
-
-# Matplotlib charts use the same dark navy/gold presentation.
-plt.rcParams.update({
-    "figure.facecolor": "#112240", "axes.facecolor": "#112240",
-    "axes.edgecolor": "#8892b0", "axes.labelcolor": "#e6f1ff",
-    "axes.titlecolor": "#FFD700", "xtick.color": "#e6f1ff",
-    "ytick.color": "#e6f1ff", "text.color": "#e6f1ff",
-    "grid.color": "#8892b0", "legend.facecolor": "#112240",
-    "legend.edgecolor": "#FFD700",
-})
-
-# ============================================================================
-# SESSION STATE INITIALIZATION
-# ============================================================================
-
-if 'model_fitted' not in st.session_state:
-    st.session_state.model_fitted = False
-if 'mc_results' not in st.session_state:
-    st.session_state.mc_results = None
-if 'forecast_data' not in st.session_state:
-    st.session_state.forecast_data = {}
-
-# ============================================================================
-# HELPER CLASSES
-# ============================================================================
-
-class GDPProjectionModel:
-    """Linear regression model for GDP projection"""
-    
-    def __init__(self, base_year=2024):
-        self.base_year = base_year
-        self.model = LinearRegression()
-        self.scaler = StandardScaler()
-        self.features = None
-        self.coefficients = None
-        self.r2_score = None
-        
-    def prepare_data(self, years, gdp_growth, predictors):
-        X_scaled = self.scaler.fit_transform(predictors)
-        y = np.array(gdp_growth)
-        self.features = predictors.columns
-        return X_scaled, y
-    
-    def fit(self, X_scaled, y):
-        self.model.fit(X_scaled, y)
-        self.coefficients = dict(zip(self.features, self.model.coef_))
-        self.r2_score = self.model.score(X_scaled, y)
-        return self
-    
-    def project(self, predictors_2026):
-        X_2026 = self.scaler.transform(predictors_2026.reshape(1, -1))
-        return self.model.predict(X_2026)[0]
+""")
 
 
-class SectoralGDPModel:
-    """Multi-sector GDP decomposition"""
-    
-    def __init__(self):
-        self.sectors = {}
-        self.weights = {}
-        
-    def add_sector(self, name, weight, base_growth):
-        self.sectors[name] = {
-            'weight': weight,
-            'base_growth': base_growth,
-            'elasticities': {}
-        }
-        self.weights[name] = weight
-    
-    def set_elasticities(self, sector, elasticity_dict):
-        self.sectors[sector]['elasticities'] = elasticity_dict
-    
-    def project_growth(self, sector, variables):
-        base = self.sectors[sector]['base_growth']
-        elasticities = self.sectors[sector]['elasticities']
-        growth = base
-        for var, shock in variables.items():
-            if var in elasticities:
-                growth += elasticities[var] * shock
-        return growth
-    
-    def aggregate_gdp(self, sector_growths):
-        gdp_growth = 0
-        for sector, growth in sector_growths.items():
-            weight = self.weights[sector]
-            gdp_growth += weight * growth
-        return gdp_growth
+# Small helpers -----------------------------------------------------------------
+def html(s: str):
+    st.html(s)
 
 
-class MonteCarloGDPSimulation:
-    """Monte Carlo simulation for probability distribution"""
-    
-    def __init__(self, num_simulations=10000):
-        self.num_simulations = num_simulations
-        self.simulations = None
-        
-    def run_simulation(self, base_growth, scenarios_dict):
-        self.simulations = []
-        scenario_names = list(scenarios_dict.keys())
-        probabilities = [scenarios_dict[s]['probability'] for s in scenario_names]
-        
-        for _ in range(self.num_simulations):
-            scenario = np.random.choice(scenario_names, p=probabilities)
-            base_sim = scenarios_dict[scenario]['growth']
-            noise = np.random.normal(0, 0.15)
-            self.simulations.append(base_sim + noise)
-        
-        self.simulations = np.array(self.simulations)
-    
-    def get_statistics(self):
-        return {
-            'mean': np.mean(self.simulations),
-            'std': np.std(self.simulations),
-            'median': np.median(self.simulations),
-            'min': np.min(self.simulations),
-            'max': np.max(self.simulations),
-            'percentile_5': np.percentile(self.simulations, 5),
-            'percentile_25': np.percentile(self.simulations, 25),
-            'percentile_75': np.percentile(self.simulations, 75),
-            'percentile_95': np.percentile(self.simulations, 95)
-        }
-
-
-# ============================================================================
-# MAIN APP
-# ============================================================================
-
-def main():
-    # ========================================================================
-    # SIDEBAR PROFILE SECTION (ONLY NAME & COMPANY)
-    # ========================================================================
-    with st.sidebar:
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,{BLUE},{MID});border:1px solid rgba(255,215,0,.28);
-             border-radius:14px;padding:16px;margin:4px 0 18px;text-align:center;">
-            <div style="font-size:28px">📊</div>
-            <div style="color:{GOLD};font-weight:800;letter-spacing:1px;font-size:12px;">THE MOUNTAIN PATH ACADEMY</div>
-            <div style="color:#fff;font-size:15px;font-weight:700;margin-top:5px;">Prof. V. Ravichandran</div>
-            <div style="color:{LB};font-size:11px;">World of Finance</div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ========================================================================
-    # MAIN HEADER
-    # ========================================================================
-    st.markdown(f"""
-    <div style="background:linear-gradient(90deg,{BLUE},{MID});border-radius:16px;
-         padding:22px 26px;border:1px solid rgba(255,215,0,.3);user-select:none;
-         box-shadow:0 6px 24px rgba(0,0,0,.35);margin-bottom:10px;">
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <div style="font-size:34px">📊</div>
-        <div style="flex:1;min-width:260px;">
-          <div style="color:{GOLD};font-size:13px;font-weight:700;letter-spacing:2px;">THE MOUNTAIN PATH ACADEMY · WORLD OF FINANCE</div>
-          <div style="color:#fff;font-size:26px;font-weight:800;line-height:1.15;margin-top:2px;">India GDP Projection {FORECAST_PERIOD}</div>
-          <div style="color:{LB};font-size:14px;margin-top:3px;">Build scenarios · inspect quarterly growth · test sensitivities · compare institutions · export results</div>
-        </div>
-        <div style="text-align:right;min-width:150px;">
-          <div style="color:{MUTED};font-size:12px;">Educational Series by</div>
-          <div style="color:#fff;font-size:15px;font-weight:700;">Prof. V. Ravichandran</div>
-          <a href="{LINK_ACADEMY}" target="_blank" style="color:{GOLD};font-size:12px;text-decoration:none;">themountainpathacademy.com ↗</a>
-        </div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Sidebar for navigation
-    st.sidebar.markdown("## 🎯 Navigation")
-    
-    page = st.sidebar.radio(
-        "Select Page",
-        ["🏠 Dashboard", "🗓️ Quarterly Projection", "⚙️ Scenario Builder", "📈 Sensitivity Analysis", 
-         "📊 Institutional Comparison", "📥 Download Results"]
+def plotly_theme(fig, height=440, legend=True):
+    fig.update_layout(
+        height=height,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(color=TXT, family="Inter, Segoe UI, sans-serif", size=13),
+        margin=dict(l=20, r=20, t=56, b=40),
+        hoverlabel=dict(bgcolor=CARD, font_color=TXT, bordercolor=GOLD),
+        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(255,215,0,.2)",
+                    borderwidth=1) if legend else dict(),
+        showlegend=legend,
     )
-    
-    # Initialize model data
-    # Setup sectoral model
-    sectoral_model = SectoralGDPModel()
-    # Working assumptions calibrated to aggregate to a 6.60% base case.
-    sectoral_model.add_sector('Agriculture', 0.18, 3.50)
-    sectoral_model.add_sector('Manufacturing', 0.27, 6.43)
-    sectoral_model.add_sector('Services', 0.55, 7.70)
-    
-    sectoral_model.set_elasticities('Agriculture', {
-        'Oil_Price_Change': -0.08,
-        'Monsoon_Deviation': 0.20,
-        'Food_Inflation': -0.10
-    })
-    
-    sectoral_model.set_elasticities('Manufacturing', {
-        'Oil_Price_Change': -0.10,
-        'Capex_Growth_Change': 0.15,
-        'Tariff_Impact': -0.50,
-        'Global_Growth': 0.30
-    })
-    
-    sectoral_model.set_elasticities('Services', {
-        'Consumption_Growth': 0.20,
-        'Interest_Rate_Change': -0.08,
-        'Export_Growth': 0.25,
-        'Global_Growth': 0.15
-    })
-    
-    # ========================================================================
-    # PAGE ROUTING
-    # ========================================================================
-    
-    if page == "🏠 Dashboard":
-        show_dashboard(sectoral_model)
-    elif page == "🗓️ Quarterly Projection":
-        show_quarterly_projection()
-    elif page == "⚙️ Scenario Builder":
-        show_scenario_builder(sectoral_model)
-    elif page == "📈 Sensitivity Analysis":
-        show_sensitivity_analysis()
-    elif page == "📊 Institutional Comparison":
-        show_institutional_comparison()
-    elif page == "📥 Download Results":
-        show_download_page()
-
-    st.markdown(f"""
-    <div style="margin-top:22px;background:linear-gradient(90deg,{BLUE},{MID});border-radius:16px;
-         padding:20px 26px;border:1px solid rgba(255,215,0,.3);user-select:none;">
-      <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;">
-        <div>
-          <div style="color:{GOLD};font-size:15px;font-weight:800;">The Mountain Path — World of Finance</div>
-          <div style="color:{LB};font-size:12.5px;margin-top:2px;">Bridging Theory with Practice · Excellence in Financial Education</div>
-          <div style="color:{MUTED};font-size:11.5px;margin-top:6px;">Prof. V. Ravichandran · Visiting Professor &amp; Professor of Practice at Leading Business Schools · 28+ Years Corporate Finance &amp; Banking</div>
-        </div>
-        <div style="text-align:right;display:flex;flex-direction:column;gap:6px;">
-          <a href="{LINK_ACADEMY}" target="_blank" style="color:{GOLD};font-weight:700;font-size:13px;text-decoration:none;">🌐 themountainpathacademy.com ↗</a>
-          <a href="{LINK_LI}" target="_blank" style="color:{GOLD};font-weight:700;font-size:13px;text-decoration:none;">in · LinkedIn ↗</a>
-          <a href="{LINK_GH}" target="_blank" style="color:{GOLD};font-weight:700;font-size:13px;text-decoration:none;">⌥ GitHub ↗</a>
-        </div>
-      </div>
-      <div style="color:{MUTED};font-size:11px;margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:8px;">Educational content only — not investment advice. Forecasts are model estimates and remain subject to revision.</div>
-    </div>
-    """, unsafe_allow_html=True)
+    fig.update_xaxes(gridcolor="rgba(255,255,255,.06)", zeroline=False,
+                     linecolor="rgba(255,255,255,.2)")
+    fig.update_yaxes(gridcolor="rgba(255,255,255,.06)", zeroline=False,
+                     linecolor="rgba(255,255,255,.2)")
+    return fig
 
 
-def show_dashboard(sectoral_model):
-    """Dashboard with base case scenario"""
-    
-    st.subheader("📊 Base Case Forecast")
-    st.caption(
-        f"Forecast period: {FORECAST_PERIOD} (April 2026-March 2027) · "
-        f"Base case: {BASE_GDP_GROWTH:.1f}% · Data vintage: {DATA_AS_OF}"
-    )
-    
-    # Base case variables
-    base_variables = {
-        'Oil_Price_Change': 0.0,
-        'Monsoon_Deviation': 0.0,
-        'Food_Inflation': 0.0,
-        'Capex_Growth_Change': 0.0,
-        'Tariff_Impact': 0.0,
-        'Global_Growth': 0.0,
-        'Consumption_Growth': 0.0,
-        'Interest_Rate_Change': 0.0,
-        'Export_Growth': 0.0
+# =============================================================================
+# MODEL
+# =============================================================================
+def calc_ud(mode, sigma, dt, u_input, d_input):
+    if mode.startswith("3/"):
+        u = math.exp(sigma * math.sqrt(dt))
+        d = math.exp(-sigma * math.sqrt(dt))
+    else:
+        u, d = u_input, d_input
+    return u, d
+
+
+def risk_neutral_prob(r, q, dt, u, d):
+    growth = math.exp((r - q) * dt)
+    if abs(u - d) < 1e-14:
+        return np.nan
+    return (growth - d) / (u - d)
+
+
+def payoff(s, k, option_type):
+    return max(s - k, 0.0) if option_type == "Call" else max(k - s, 0.0)
+
+
+def build_binomial(S0, K, r, q, T, n, option_type, exercise, u, d):
+    dt = T / n
+    p = risk_neutral_prob(r, q, dt, u, d)
+    disc = math.exp(-r * dt)
+
+    stock = np.full((n + 1, n + 1), np.nan)
+    opt = np.full((n + 1, n + 1), np.nan)
+    intrinsic = np.full((n + 1, n + 1), np.nan)
+    continuation = np.full((n + 1, n + 1), np.nan)
+    early = np.full((n + 1, n + 1), False, dtype=bool)
+
+    for i in range(n + 1):
+        for j in range(i + 1):
+            # j = number of up moves; i-j = down moves
+            stock[i, j] = S0 * (u ** j) * (d ** (i - j))
+            intrinsic[i, j] = payoff(stock[i, j], K, option_type)
+
+    opt[n, : n + 1] = intrinsic[n, : n + 1]
+
+    for i in range(n - 1, -1, -1):
+        for j in range(i + 1):
+            cont = disc * (p * opt[i + 1, j + 1] + (1 - p) * opt[i + 1, j])
+            continuation[i, j] = cont
+            if exercise == "American":
+                opt[i, j] = max(intrinsic[i, j], cont)
+                early[i, j] = intrinsic[i, j] > cont + 1e-10
+            else:
+                opt[i, j] = cont
+
+    return {
+        "dt": dt,
+        "p": p,
+        "disc": disc,
+        "stock": stock,
+        "option": opt,
+        "intrinsic": intrinsic,
+        "continuation": continuation,
+        "early": early,
+        "value": float(opt[0, 0]),
     }
-    
-    # Calculate base case
-    sector_growths_base = {}
-    for sector in sectoral_model.sectors.keys():
-        sector_growths_base[sector] = sectoral_model.project_growth(sector, base_variables)
-    
-    gdp_base = sectoral_model.aggregate_gdp(sector_growths_base)
-    
-    # Display key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(f"""
-        <div class='metric-box'>
-            <strong>Base Case GDP Growth</strong><br>
-            <span style='font-size: 2em; color: #003366;'>{gdp_base:.2f}%</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class='metric-box'>
-            <strong>Agriculture</strong><br>
-            <span style='font-size: 2em; color: #003366;'>{sector_growths_base['Agriculture']:.2f}%</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class='metric-box'>
-            <strong>Manufacturing</strong><br>
-            <span style='font-size: 2em; color: #003366;'>{sector_growths_base['Manufacturing']:.2f}%</span>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class='metric-box'>
-            <strong>Services</strong><br>
-            <span style='font-size: 2em; color: #003366;'>{sector_growths_base['Services']:.2f}%</span>
-        </div>
-        """, unsafe_allow_html=True)
 
-    # Quarterly forecast is also shown on the main dashboard so users do not
-    # need to discover it through the sidebar navigation.
-    st.markdown("---")
-    st.subheader(f"🗓️ Quarterly Forecast — {FORECAST_PERIOD}")
-    dashboard_quarters = pd.DataFrame({
-        "Quarter": ["Q1 (Apr–Jun)", "Q2 (Jul–Sep)", "Q3 (Oct–Dec)", "Q4 (Jan–Mar)"],
-        "Our Model (%)": [6.9, 6.3, 6.4, 6.8],
-        "RBI Projection (%)": [7.0, 6.4, 6.5, 6.8],
-    })
 
-    q1, q2, q3, q4 = st.columns(4)
-    for column, row in zip([q1, q2, q3, q4], dashboard_quarters.to_dict("records")):
-        with column:
-            st.metric(row["Quarter"], f"{row['Our Model (%)']:.1f}%",
-                      delta=f"RBI {row['RBI Projection (%)']:.1f}%")
+# ---- Black–Scholes closed-form benchmark ------------------------------------
+def _norm_cdf(x):
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
 
-    st.dataframe(
-        dashboard_quarters.style.format({
-            "Our Model (%)": "{:.1f}",
-            "RBI Projection (%)": "{:.1f}",
-        }),
-        use_container_width=True,
-        hide_index=True,
-    )
 
-    qfig, qax = plt.subplots(figsize=(11, 4))
-    qx = np.arange(len(dashboard_quarters))
-    qax.plot(qx, dashboard_quarters["Our Model (%)"], marker="o", linewidth=2.5,
-             color=DARKBLUE, label="Our model")
-    qax.plot(qx, dashboard_quarters["RBI Projection (%)"], marker="s", linewidth=2,
-             linestyle="--", color="#666666", label="RBI August 2026")
-    qax.set_xticks(qx)
-    qax.set_xticklabels(dashboard_quarters["Quarter"])
-    qax.set_ylabel("Real GDP growth, YoY (%)", fontweight="bold")
-    qax.grid(alpha=0.3)
-    qax.legend()
-    st.pyplot(qfig)
-    st.caption(
-        "Quarterly rates are year-over-year projections. Use “Quarterly Projection” "
-        "in the sidebar to adjust each quarter."
-    )
-    
-    st.markdown("---")
-    
-    # Scenario comparison
-    st.subheader("📈 Scenario Comparison")
-    
-    # Upside scenario
-    upside_variables = {
-        'Oil_Price_Change': -15.0,
-        'Monsoon_Deviation': 0.10,
-        'Food_Inflation': -0.5,
-        'Capex_Growth_Change': 5.0,
-        'Tariff_Impact': 0.0,
-        'Global_Growth': 0.5,
-        'Consumption_Growth': 1.0,
-        'Interest_Rate_Change': -0.50,
-        'Export_Growth': 2.0
-    }
-    
-    sector_growths_upside = {}
-    for sector in sectoral_model.sectors.keys():
-        sector_growths_upside[sector] = sectoral_model.project_growth(sector, upside_variables)
-    
-    gdp_upside = sectoral_model.aggregate_gdp(sector_growths_upside)
-    
-    # Downside scenario
-    downside_variables = {
-        'Oil_Price_Change': 20.0,
-        'Monsoon_Deviation': -0.15,
-        'Food_Inflation': 1.5,
-        'Capex_Growth_Change': -8.0,
-        'Tariff_Impact': -0.25,
-        'Global_Growth': -1.0,
-        'Consumption_Growth': -0.5,
-        'Interest_Rate_Change': 0.25,
-        'Export_Growth': -3.0
-    }
-    
-    sector_growths_downside = {}
-    for sector in sectoral_model.sectors.keys():
-        sector_growths_downside[sector] = sectoral_model.project_growth(sector, downside_variables)
-    
-    gdp_downside = sectoral_model.aggregate_gdp(sector_growths_downside)
-    
-    # Display scenarios
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class='scenario-box downside'>
-            <strong>📉 Downside Case</strong><br>
-            Probability: 20%<br>
-            <span style='font-size: 1.8em;'>{gdp_downside:.2f}%</span><br>
-            <small>Oil spike, tariffs, monsoon deficit</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class='scenario-box base'>
-            <strong>📊 Base Case</strong><br>
-            Probability: 60%<br>
-            <span style='font-size: 1.8em;'>{gdp_base:.2f}%</span><br>
-            <small>Most likely outcome</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class='scenario-box upside'>
-            <strong>📈 Upside Case</strong><br>
-            Probability: 20%<br>
-            <span style='font-size: 1.8em;'>{gdp_upside:.2f}%</span><br>
-            <small>Lower oil, strong capex, excess monsoon</small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Probability-weighted forecast
-    prob_weighted = (0.20 * gdp_downside) + (0.60 * gdp_base) + (0.20 * gdp_upside)
-    
-    st.info(f"**Probability-Weighted Forecast: {prob_weighted:.2f}%**")
-    st.caption(
-        f"Reference assumptions: oil ${BASE_OIL_PRICE:.2f}/bbl, RBI CPI inflation "
-        f"{BASE_CPI_INFLATION:.1f}%, and central-government capex growth "
-        f"{BASE_CAPEX_GROWTH:.1f}%. Scenario elasticities are model assumptions, not official estimates."
-    )
-    
-    # Monte Carlo simulation
-    st.subheader("🎲 Monte Carlo Simulation (10,000 runs)")
-    
-    scenarios = {
-        'Upside': {'probability': 0.20, 'growth': gdp_upside},
-        'Base': {'probability': 0.60, 'growth': gdp_base},
-        'Downside': {'probability': 0.20, 'growth': gdp_downside}
-    }
-    
-    mc_sim = MonteCarloGDPSimulation(num_simulations=10000)
-    mc_sim.run_simulation(gdp_base, scenarios)
-    stats_dict = mc_sim.get_statistics()
-    
-    # Display MC statistics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Mean", f"{stats_dict['mean']:.2f}%")
-    
-    with col2:
-        st.metric("Median", f"{stats_dict['median']:.2f}%")
-    
-    with col3:
-        st.metric("Std Dev", f"{stats_dict['std']:.2f}%")
-    
-    with col4:
-        st.metric("Range", f"{stats_dict['min']:.2f}% - {stats_dict['max']:.2f}%")
-    
-    # Plot MC distribution
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    
-    # Histogram
-    axes[0].hist(mc_sim.simulations, bins=60, density=True, alpha=0.7,
-                 color='#003366', edgecolor='black', linewidth=0.5)
-    
-    mu, sigma = stats_dict['mean'], stats_dict['std']
-    x = np.linspace(mu - 4*sigma, mu + 4*sigma, 100)
-    axes[0].plot(x, stats.norm.pdf(x, mu, sigma), 'r-', linewidth=2.5, label='Normal Fit')
-    axes[0].axvline(mu, color='#003366', linestyle='--', linewidth=2, label=f'Mean: {mu:.2f}%')
-    axes[0].set_xlabel('GDP Growth Rate (%)', fontsize=11, fontweight='bold')
-    axes[0].set_ylabel('Probability Density', fontsize=11, fontweight='bold')
-    axes[0].set_title('GDP Growth Distribution', fontsize=12, fontweight='bold', color=GOLD)
-    axes[0].legend()
-    axes[0].grid(alpha=0.3)
-    
-    # CDF
-    sorted_sims = np.sort(mc_sim.simulations)
-    cumulative_prob = np.arange(1, len(sorted_sims) + 1) / len(sorted_sims)
-    axes[1].plot(sorted_sims, cumulative_prob * 100, linewidth=2.5, color='#003366')
-    axes[1].fill_between(sorted_sims, 0, cumulative_prob * 100, alpha=0.2, color='#003366')
-    axes[1].set_xlabel('GDP Growth Rate (%)', fontsize=11, fontweight='bold')
-    axes[1].set_ylabel('Cumulative Probability (%)', fontsize=11, fontweight='bold')
-    axes[1].set_title('Cumulative Distribution Function', fontsize=12, fontweight='bold', color=GOLD)
-    axes[1].grid(alpha=0.3)
-    axes[1].set_ylim([0, 100])
-    
-    plt.tight_layout()
-    st.pyplot(fig)
-    
-    # Percentile summary
-    st.subheader("📊 Percentile Distribution")
-    
-    percentile_data = {
-        'Percentile': ['5th', '25th', '50th (Median)', '75th', '95th'],
-        'GDP Growth': [
-            f"{stats_dict['percentile_5']:.2f}%",
-            f"{stats_dict['percentile_25']:.2f}%",
-            f"{stats_dict['median']:.2f}%",
-            f"{stats_dict['percentile_75']:.2f}%",
-            f"{stats_dict['percentile_95']:.2f}%"
+def bs_price(S, K, r, q, T, sigma, option_type):
+    """European Black–Scholes–Merton price with continuous dividend yield q."""
+    if T <= 0 or sigma <= 0:
+        fwd = S * math.exp(-q * T)
+        strike_pv = K * math.exp(-r * T)
+        return max(fwd - strike_pv, 0.0) if option_type == "Call" else max(strike_pv - fwd, 0.0)
+    d1 = (math.log(S / K) + (r - q + 0.5 * sigma ** 2) * T) / (sigma * math.sqrt(T))
+    d2 = d1 - sigma * math.sqrt(T)
+    if option_type == "Call":
+        return S * math.exp(-q * T) * _norm_cdf(d1) - K * math.exp(-r * T) * _norm_cdf(d2)
+    return K * math.exp(-r * T) * _norm_cdf(-d2) - S * math.exp(-q * T) * _norm_cdf(-d1)
+
+
+def effective_sigma(mode, sigma, u, dt):
+    """Volatility fed to Black–Scholes.
+    Volatility mode: use sigma directly.
+    Manual u/d mode: back out the CRR-implied sigma from u = exp(sigma*sqrt(dt))."""
+    if mode.startswith("3/"):
+        return sigma
+    if u > 0 and dt > 0:
+        return math.log(u) / math.sqrt(dt)
+    return 0.0
+
+
+def node_dataframe(res, n):
+    rows = []
+    for i in range(n + 1):
+        for j in range(i + 1):
+            cont = res["continuation"][i, j]
+            rows.append({
+                "Step": i,
+                "Up Moves": j,
+                "Down Moves": i - j,
+                "Stock Price": res["stock"][i, j],
+                "Intrinsic Payoff": res["intrinsic"][i, j],
+                "Continuation Value": np.nan if np.isnan(cont) else cont,
+                "Option Value": res["option"][i, j],
+                "Early Exercise": bool(res["early"][i, j]),
+            })
+    return pd.DataFrame(rows)
+
+
+# =============================================================================
+# FIGURES  (routed through plotly_theme + brand colors)
+# =============================================================================
+TREE_SCALE = [[0.0, MID], [0.5, LB], [1.0, GOLD]]
+
+
+def tree_figure(matrix, n, title, value_prefix="₹", early=None):
+    fig = go.Figure()
+    xs, ys, vals, texts, hover = [], [], [], [], []
+    for i in range(n + 1):
+        for j in range(i + 1):
+            x = i
+            y = 2 * j - i
+            val = matrix[i, j]
+            xs.append(x); ys.append(y); vals.append(val)
+            marker = " ★" if early is not None and early[i, j] else ""
+            texts.append(f"{value_prefix}{val:,.2f}{marker}")
+            hover.append(f"Step {i}<br>Up moves {j}<br>Value {val:,.6f}")
+    # edges
+    for i in range(n):
+        for j in range(i + 1):
+            x0, y0 = i, 2 * j - i
+            for j2 in (j, j + 1):
+                x1, y1 = i + 1, 2 * j2 - (i + 1)
+                fig.add_trace(go.Scatter(x=[x0, x1], y=[y0, y1], mode="lines",
+                                         line=dict(color="rgba(255,215,0,.28)", width=1.4),
+                                         hoverinfo="skip", showlegend=False))
+    fig.add_trace(go.Scatter(
+        x=xs, y=ys, mode="markers+text", text=texts, textposition="top center",
+        marker=dict(size=18, color=vals, colorscale=TREE_SCALE,
+                    line=dict(color=GOLD, width=1.1),
+                    showscale=n >= 8, colorbar=dict(title="Value")),
+        textfont=dict(color=TXT, size=11), hovertext=hover, hoverinfo="text",
+        showlegend=False))
+    fig = plotly_theme(fig, height=max(430, min(760, 42 * n + 390)), legend=False)
+    fig.update_layout(title=title)
+    fig.update_xaxes(title="Time Step")
+    fig.update_yaxes(title="Tree Position", showticklabels=False)
+    return fig
+
+
+def payoff_figure(S0, K, price, option_type):
+    smax = max(S0, K) * 1.75
+    x = np.linspace(0.25 * min(S0, K), smax, 220)
+    intrinsic = np.maximum(x - K, 0) if option_type == "Call" else np.maximum(K - x, 0)
+    pnl = intrinsic - price
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=x, y=intrinsic, name="Expiry payoff",
+                             line=dict(color=GOLD, width=3)))
+    fig.add_trace(go.Scatter(x=x, y=pnl, name="Buyer P/L after premium",
+                             line=dict(color=LB, width=3, dash="dash")))
+    fig.add_hline(y=0, line_width=1, line_dash="dot", line_color=MUTED)
+    fig.add_vline(x=K, line_width=1, line_dash="dot", line_color=AMBER,
+                  annotation_text="Strike", annotation_font_color=AMBER)
+    fig = plotly_theme(fig, height=440)
+    fig.update_layout(title=f"{option_type} payoff and buyer P/L",
+                      legend=dict(orientation="h", y=1.1))
+    fig.update_xaxes(title="Underlying price at expiry")
+    fig.update_yaxes(title="Value")
+    return fig
+
+
+def convergence_figure(S0, K, r, q, T, option_type, exercise, mode, sigma,
+                       u_input, d_input, bs_val=None, max_n=50):
+    points = sorted(set([1, 2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 40, max_n]))
+    vals, valid = [], []
+    for n0 in points:
+        dt = T / n0
+        u, d = calc_ud(mode, sigma, dt, u_input, d_input)
+        p = risk_neutral_prob(r, q, dt, u, d)
+        if 0 <= p <= 1:
+            vals.append(build_binomial(S0, K, r, q, T, n0, option_type, exercise, u, d)["value"])
+            valid.append(n0)
+    fig = go.Figure(go.Scatter(x=valid, y=vals, mode="lines+markers",
+                               name="Binomial value", line=dict(color=GOLD, width=3),
+                               marker=dict(color=GOLD, size=7)))
+    if bs_val is not None and exercise == "European":
+        fig.add_hline(y=bs_val, line_dash="dash", line_color=LB,
+                      annotation_text=f"Black–Scholes ₹{bs_val:,.2f}",
+                      annotation_font_color=LB)
+    fig = plotly_theme(fig, height=440)
+    fig.update_layout(title="Price convergence as the number of steps increases")
+    fig.update_xaxes(title="Steps")
+    fig.update_yaxes(title="Option value")
+    return fig
+
+
+# =============================================================================
+# EXCEL EXPORT
+# =============================================================================
+def make_excel(inputs, res, n, mode, bs_val, bs_sigma):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        wb = writer.book
+        navy_fmt = wb.add_format({"bg_color": "#003366", "font_color": "#FFFFFF", "bold": True, "border": 1, "border_color": "#FFD700"})
+        title_fmt = wb.add_format({"bg_color": "#112240", "font_color": "#FFD700", "bold": True, "font_size": 18, "align": "center", "valign": "vcenter"})
+        section_fmt = wb.add_format({"bg_color": "#0B2747", "font_color": "#FFD700", "bold": True, "font_size": 12, "border": 1, "border_color": "#FFD700"})
+        input_fmt = wb.add_format({"bg_color": "#FFF9E8", "font_color": "#071A2F", "border": 1, "border_color": "#D9D9D9"})
+        num_fmt = wb.add_format({"num_format": "0.0000", "border": 1, "border_color": "#D9D9D9"})
+        money_fmt = wb.add_format({"num_format": "#,##0.00", "border": 1, "border_color": "#D9D9D9"})
+        pct_fmt = wb.add_format({"num_format": "0.0000%", "border": 1, "border_color": "#D9D9D9"})
+        note_fmt = wb.add_format({"font_color": "#666666", "italic": True, "text_wrap": True})
+        early_fmt = wb.add_format({"bg_color": "#FFE5E5", "font_color": "#9C0006", "bold": True, "border": 1, "border_color": "#D9D9D9"})
+
+        # Summary & inputs
+        ws = wb.add_worksheet("Summary & Inputs")
+        writer.sheets["Summary & Inputs"] = ws
+        ws.set_column("A:A", 30); ws.set_column("B:B", 22); ws.set_column("C:C", 46)
+        ws.set_row(0, 30)
+        ws.merge_range("A1:C1", "THE MOUNTAIN PATH ACADEMY  |  BINOMIAL OPTION PRICING MODEL", title_fmt)
+        ws.write("A3", "Model setup", section_fmt); ws.write("B3", "Value", section_fmt); ws.write("C3", "Teaching note", section_fmt)
+        rows = [
+            ("Model mode", mode, "Manual u/d or CRR volatility-based tree"),
+            ("Option type", inputs["Option Type"], "Call or Put"),
+            ("Exercise style", inputs["Exercise"], "European: expiry only; American: early exercise allowed"),
+            ("Spot price S0", inputs["S0"], "Current underlying price"),
+            ("Strike K", inputs["K"], "Contract strike price"),
+            ("Risk-free rate r", inputs["r"], "Continuously compounded annual rate"),
+            ("Dividend yield q", inputs["q"], "Continuously compounded annual yield"),
+            ("Maturity T", inputs["T"], "Years to expiry"),
+            ("Steps n", n, "2, 3 or multi-period"),
+            ("Volatility sigma", inputs["sigma"], "Used only in volatility-based mode"),
+            ("Up factor u", inputs["u"], "Per-step up multiplier"),
+            ("Down factor d", inputs["d"], "Per-step down multiplier"),
+            ("Delta t", res["dt"], "T / n"),
+            ("Risk-neutral p", res["p"], "[exp((r-q)dt)-d] / (u-d)"),
+            ("Discount factor", res["disc"], "exp(-r*dt)"),
+            ("Binomial option value", res["value"], "Root node value"),
+            ("Black-Scholes (European)", bs_val, "Closed-form benchmark"),
+            ("BS volatility used", bs_sigma, "sigma (vol mode) or ln(u)/sqrt(dt) (manual)"),
+            ("Binomial - BS", res["value"] - bs_val, "Convergence gap vs closed form"),
         ]
-    }
-    
-    st.dataframe(pd.DataFrame(percentile_data), use_container_width=True)
+        for rr, (k, v, note) in enumerate(rows, 3):
+            ws.write(rr, 0, k, input_fmt)
+            if isinstance(v, (int, float, np.floating)):
+                fmt = pct_fmt if k in {"Risk-free rate r", "Dividend yield q", "Volatility sigma", "Risk-neutral p", "BS volatility used"} else money_fmt if k in {"Spot price S0", "Strike K", "Binomial option value", "Black-Scholes (European)", "Binomial - BS"} else num_fmt
+                ws.write(rr, 1, float(v), fmt)
+            else:
+                ws.write(rr, 1, v, input_fmt)
+            ws.write(rr, 2, note, note_fmt)
 
+        # Node detail table
+        df = node_dataframe(res, n)
+        df.to_excel(writer, sheet_name="Node Details", index=False, startrow=2)
+        wnd = writer.sheets["Node Details"]
+        wnd.merge_range("A1:H1", "NODE-BY-NODE CALCULATION", title_fmt)
+        wnd.set_column("A:C", 12); wnd.set_column("D:G", 20); wnd.set_column("H:H", 16)
+        for c, col in enumerate(df.columns):
+            wnd.write(2, c, col, navy_fmt)
+        wnd.freeze_panes(3, 0)
+        for rownum in range(3, 3 + len(df)):
+            if bool(df.iloc[rownum - 3]["Early Exercise"]):
+                wnd.set_row(rownum, None, early_fmt)
 
-def show_quarterly_projection():
-    """Quarterly GDP projection path for FY2026-27."""
+        # Trees in grid form
+        for sheet_name, matrix in [("Stock Tree", res["stock"]), ("Option Tree", res["option"]),
+                                   ("Intrinsic Tree", res["intrinsic"]), ("Continuation Tree", res["continuation"])]:
+            w = wb.add_worksheet(sheet_name); writer.sheets[sheet_name] = w
+            w.merge_range(0, 0, 0, n + 1, sheet_name.upper(), title_fmt)
+            w.write(2, 0, "Step / Up moves", navy_fmt)
+            for j in range(n + 1):
+                w.write(2, j + 1, j, navy_fmt)
+            for i in range(n + 1):
+                w.write(i + 3, 0, i, navy_fmt)
+                for j in range(i + 1):
+                    val = matrix[i, j]
+                    if np.isnan(val):
+                        w.write_blank(i + 3, j + 1, None, num_fmt)
+                    else:
+                        w.write(i + 3, j + 1, float(val), money_fmt)
+            w.set_column(0, 0, 17); w.set_column(1, n + 1, 14); w.freeze_panes(3, 1)
 
-    st.subheader(f"🗓️ Quarterly GDP Projection — {FORECAST_PERIOD}")
-    st.caption(
-        "Real GDP growth, year over year. RBI benchmark is from its August 2026 "
-        "monetary-policy projection; the model path averages 6.6% for the fiscal year."
-    )
-
-    quarters = ["Q1 (Apr–Jun)", "Q2 (Jul–Sep)", "Q3 (Oct–Dec)", "Q4 (Jan–Mar)"]
-    rbi_projection = np.array([7.0, 6.4, 6.5, 6.8])
-    model_base = np.array([6.9, 6.3, 6.4, 6.8])
-
-    st.markdown("### Adjust the quarterly path")
-    col1, col2, col3, col4 = st.columns(4)
-    adjustments = []
-    for column, quarter in zip([col1, col2, col3, col4], quarters):
-        with column:
-            adjustments.append(
-                st.slider(
-                    quarter,
-                    min_value=-1.5,
-                    max_value=1.5,
-                    value=0.0,
-                    step=0.1,
-                    help="Adjustment in percentage points relative to the model base."
-                )
-            )
-
-    custom_projection = model_base + np.array(adjustments)
-    annual_model = float(np.mean(custom_projection))
-    annual_rbi = float(np.mean(rbi_projection))
-
-    metric1, metric2, metric3 = st.columns(3)
-    with metric1:
-        st.metric("Adjusted FY Growth", f"{annual_model:.2f}%",
-                  delta=f"{annual_model - BASE_GDP_GROWTH:+.2f} pp vs base")
-    with metric2:
-        st.metric("RBI FY Projection", f"{annual_rbi:.2f}%")
-    with metric3:
-        st.metric("Model–RBI Difference", f"{annual_model - annual_rbi:+.2f} pp")
-
-    quarterly_df = pd.DataFrame({
-        "Quarter": quarters,
-        "Model Base (%)": model_base,
-        "Adjusted Model (%)": custom_projection,
-        "RBI Projection (%)": rbi_projection,
-        "Adjustment (pp)": adjustments,
-    })
-    st.dataframe(
-        quarterly_df.style.format({
-            "Model Base (%)": "{:.1f}",
-            "Adjusted Model (%)": "{:.1f}",
-            "RBI Projection (%)": "{:.1f}",
-            "Adjustment (pp)": "{:+.1f}",
-        }),
-        use_container_width=True,
-        hide_index=True,
-    )
-
-    fig, ax = plt.subplots(figsize=(11, 5))
-    x = np.arange(len(quarters))
-    ax.plot(x, custom_projection, marker="o", linewidth=2.5, color=DARKBLUE,
-            label="Adjusted model")
-    ax.plot(x, rbi_projection, marker="s", linewidth=2, linestyle="--",
-            color="#666666", label="RBI August 2026")
-    ax.plot(x, model_base, linewidth=1.5, linestyle=":", color=LIGHTBLUE,
-            label="Model base")
-    ax.set_xticks(x)
-    ax.set_xticklabels(quarters)
-    ax.set_ylabel("Real GDP growth, YoY (%)", fontweight="bold")
-    ax.set_title(f"Quarterly Growth Path — {FORECAST_PERIOD}",
-                 color=DARKBLUE, fontweight="bold")
-    ax.grid(alpha=0.3)
-    ax.legend()
-    st.pyplot(fig)
-
-    st.info(
-        "The fiscal-year figure shown here is the simple average of the four quarterly "
-        "year-over-year rates. This is an approximation: official annual GDP growth is "
-        "calculated from annual GDP levels, so it need not equal that average exactly."
-    )
-    st.markdown(f"Source: [Reserve Bank of India]({SOURCES['RBI']}) · Data as of {DATA_AS_OF}")
-
-
-def show_scenario_builder(sectoral_model):
-    """Interactive scenario builder"""
-    
-    st.subheader("⚙️ Build Your Custom Scenario")
-    
-    st.markdown("Adjust the variables below to create your own scenario:")
-    
-    # Create 3 columns for inputs
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("### 🛢️ Oil & Energy")
-        oil_change = st.slider(
-            "Oil Price Change (USD/bbl)",
-            min_value=-15.0,
-            max_value=25.0,
-            value=0.0,
-            step=0.5,
-            help=f"Base: ${BASE_OIL_PRICE:.2f}/bbl (IMF July 2026). Negative = cheaper oil"
-        )
-        
-        inflation_change = st.slider(
-            "Food Inflation Change (%)",
-            min_value=-1.0,
-            max_value=2.0,
-            value=0.0,
-            step=0.1
-        )
-    
-    with col2:
-        st.markdown("### 🌾 Agriculture & Climate")
-        monsoon_dev = st.slider(
-            "Monsoon Deviation (% of normal)",
-            min_value=-0.20,
-            max_value=0.20,
-            value=0.0,
-            step=0.05,
-            help="Negative = deficit, Positive = excess"
-        )
-        
-        capex_change = st.slider(
-            "Capex Growth Change (%)",
-            min_value=-25.0,
-            max_value=25.0,
-            value=0.0,
-            step=1.0,
-            help=f"Base: {BASE_CAPEX_GROWTH:.1f}% budgeted central-government capex growth"
-        )
-    
-    with col3:
-        st.markdown("### 🌍 External Factors")
-        tariff_impact = st.slider(
-            "Tariff Impact (%)",
-            min_value=-0.50,
-            max_value=0.0,
-            value=0.0,
-            step=0.05,
-            help="Enter a downside adjustment; zero means no additional tariff shock"
-        )
-        
-        global_growth = st.slider(
-            "Global Growth Change (%)",
-            min_value=-2.0,
-            max_value=2.0,
-            value=0.0,
-            step=0.1
-        )
-    
-    st.markdown("---")
-    
-    # Additional variables
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        consumption_growth = st.slider(
-            "Consumption Growth Change (%)",
-            min_value=-1.0,
-            max_value=2.0,
-            value=0.0,
-            step=0.1
-        )
-    
-    with col2:
-        rate_change = st.slider(
-            "Interest Rate Change (bps)",
-            min_value=-100.0,
-            max_value=100.0,
-            value=0.0,
-            step=10.0,
-            help="Negative = rate cuts"
-        )
-    
-    with col3:
-        export_growth = st.slider(
-            "Export Growth Change (%)",
-            min_value=-5.0,
-            max_value=5.0,
-            value=0.0,
-            step=0.5
-        )
-    
-    st.markdown("---")
-    
-    # Calculate scenario
-    if st.button("📊 Calculate Scenario", key="scenario_calc"):
-        custom_variables = {
-            'Oil_Price_Change': oil_change,
-            'Monsoon_Deviation': monsoon_dev,
-            'Food_Inflation': inflation_change,
-            'Capex_Growth_Change': capex_change,
-            'Tariff_Impact': tariff_impact / 100,
-            'Global_Growth': global_growth,
-            'Consumption_Growth': consumption_growth,
-            'Interest_Rate_Change': rate_change / 100,
-            'Export_Growth': export_growth
-        }
-        
-        # Calculate sector growths
-        sector_growths = {}
-        for sector in sectoral_model.sectors.keys():
-            sector_growths[sector] = sectoral_model.project_growth(sector, custom_variables)
-        
-        gdp_forecast = sectoral_model.aggregate_gdp(sector_growths)
-        
-        # Display results
-        st.success("✅ Scenario Calculated!")
-        
-        # Results in columns
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("GDP Growth", f"{gdp_forecast:.2f}%")
-        
-        with col2:
-            st.metric("Agriculture", f"{sector_growths['Agriculture']:.2f}%")
-        
-        with col3:
-            st.metric("Manufacturing", f"{sector_growths['Manufacturing']:.2f}%")
-        
-        with col4:
-            st.metric("Services", f"{sector_growths['Services']:.2f}%")
-        
-        # Sector breakdown chart
-        sector_data = pd.DataFrame({
-            'Sector': list(sector_growths.keys()),
-            'Growth': list(sector_growths.values())
-        })
-        
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.bar(sector_data['Sector'], sector_data['Growth'], color=['#003366', '#ADD8E6', '#FFD700'])
-        ax.set_ylabel('Growth Rate (%)', fontweight='bold')
-        ax.set_title('Sectoral Growth Breakdown', fontweight='bold', color=GOLD, fontsize=14)
-        ax.grid(axis='y', alpha=0.3)
-        
-        for i, v in enumerate(sector_data['Growth']):
-            ax.text(i, v + 0.2, f'{v:.2f}%', ha='center', fontweight='bold')
-        
-        st.pyplot(fig)
-        
-        # Save to session state
-        st.session_state.forecast_data = {
-            'gdp': gdp_forecast,
-            'sectors': sector_growths,
-            'variables': custom_variables,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
-
-
-def show_sensitivity_analysis():
-    """Sensitivity analysis page"""
-    
-    st.subheader("📈 Sensitivity Analysis")
-    
-    st.markdown("Understand how different variables impact GDP growth.")
-    
-    base_growth = BASE_GDP_GROWTH
-    
-    sensitivities = {
-        'Oil Prices (USD/bbl)': {'elasticity': -0.10, 'range': (-15, 15), 'description': 'Every $1/bbl change'},
-        'Monsoon Index (% deviation)': {'elasticity': 0.20, 'range': (-10, 10), 'description': '10% deviation'},
-        'Capex Growth (%)': {'elasticity': 0.08, 'range': (-20, 20), 'description': 'Capex growth change'},
-        'Global Growth (%)': {'elasticity': 0.50, 'range': (-2, 2), 'description': 'Global GDP change'},
-        'Trade/Tariff Shock (%)': {'elasticity': 0.50, 'range': (-2, 0), 'description': 'Modelled GDP downside shock'}
-    }
-    
-    st.subheader("Sensitivity Coefficients")
-    
-    sensitivity_df = pd.DataFrame({
-        'Variable': list(sensitivities.keys()),
-        'Elasticity': [v['elasticity'] for v in sensitivities.values()],
-        'Description': [v['description'] for v in sensitivities.values()]
-    })
-    
-    st.dataframe(sensitivity_df, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # Tornado chart
-    st.subheader("🌪️ Sensitivity Tornado Chart")
-    
-    variables = list(sensitivities.keys())
-    impacts = []
-    
-    for var_name in variables:
-        data = sensitivities[var_name]
-        min_shock, max_shock = data['range']
-        min_impact = (data['elasticity'] * min_shock)
-        max_impact = (data['elasticity'] * max_shock)
-        impacts.append((min_impact, max_impact))
-    
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    y_pos = np.arange(len(variables))
-    
-    for i, (min_val, max_val) in enumerate(impacts):
-        if min_val < 0:
-            ax.barh(i, abs(min_val), left=-abs(min_val), height=0.6,
-                   color='#e74c3c', alpha=0.8, edgecolor='black', linewidth=0.5)
-        if max_val > 0:
-            ax.barh(i, max_val, left=0, height=0.6,
-                   color='#2ecc71', alpha=0.8, edgecolor='black', linewidth=0.5)
-    
-    ax.axvline(0, color='black', linewidth=1.5)
-    ax.set_yticks(y_pos)
-    ax.set_yticklabels(variables, fontsize=10)
-    ax.set_xlabel('GDP Growth Impact (Percentage Points)', fontsize=11, fontweight='bold')
-    ax.set_title(f'GDP Growth Sensitivity - Tornado Chart (Base: {base_growth:.2f}%)',
-                fontsize=12, fontweight='bold', color=GOLD)
-    ax.grid(axis='x', alpha=0.3)
-    
-    st.pyplot(fig)
-    
-    # Interactive calculator
-    st.markdown("---")
-    st.subheader("🔧 Interactive Sensitivity Calculator")
-    
-    selected_var = st.selectbox("Select variable to analyze", list(sensitivities.keys()))
-    
-    var_data = sensitivities[selected_var]
-    min_shock, max_shock = var_data['range']
-    
-    shock_value = st.slider(
-        f"Shock to {selected_var}",
-        min_value=int(min_shock),
-        max_value=int(max_shock),
-        value=0,
-        step=1
-    )
-    
-    impact = var_data['elasticity'] * shock_value
-    new_growth = base_growth + impact
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Shock Value", f"{shock_value:.2f}")
-    
-    with col2:
-        st.metric("Elasticity", f"{var_data['elasticity']:.3f}")
-    
-    with col3:
-        st.metric("GDP Impact", f"{impact:+.2f} bps", delta=f"{impact:+.2f}")
-    
-    st.info(f"**New GDP Growth: {new_growth:.2f}%** (from base {base_growth:.2f}%)")
-
-
-def show_institutional_comparison():
-    """Institutional forecasts comparison"""
-    
-    st.subheader("📊 Institutional Forecasts Comparison")
-    st.caption(f"Real GDP growth forecasts for {FORECAST_PERIOD}; latest available as of {DATA_AS_OF}.")
-    
-    institutions_data = {
-        'Institution': ['Our Model (Base)', 'RBI (Aug 2026)', 'IMF (Jul 2026)',
-                        'ADB (Jul 2026)', 'World Bank (Apr 2026)', 'OECD (Jun 2026)'],
-        'Forecast (%)': [BASE_GDP_GROWTH, 6.70, 6.40, 6.60, 6.60, 6.30],
-        'Type': ['Our Model', 'Institution', 'Institution', 'Institution', 'Institution', 'Institution']
-    }
-    
-    forecast_df = pd.DataFrame(institutions_data)
-    
-    st.dataframe(forecast_df, use_container_width=True)
-    
-    our_base = forecast_df[forecast_df['Institution'] == 'Our Model (Base)']['Forecast (%)'].values[0]
-    institutional_avg = forecast_df[forecast_df['Type'] == 'Institution']['Forecast (%)'].mean()
-    difference = our_base - institutional_avg
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("Our Base Case", f"{our_base:.2f}%")
-    with col2:
-        st.metric("Institutional Average", f"{institutional_avg:.2f}%")
-    with col3:
-        st.metric("Difference", f"{difference:+.2f}%")
-    
-    st.markdown("---")
-    
-    # Comparison chart
-    fig, ax = plt.subplots(figsize=(12, 6))
-    
-    colors = ['#003366' if x == 'Our Model' else '#666666' for x in forecast_df['Type']]
-    ax.barh(forecast_df['Institution'], forecast_df['Forecast (%)'], color=colors, alpha=0.8)
-    
-    for i, (idx, row) in enumerate(forecast_df.iterrows()):
-        ax.text(row['Forecast (%)'] + 0.1, i, f"{row['Forecast (%)']:.1f}%",
-                va='center', fontweight='bold')
-    
-    ax.set_xlabel('GDP Growth Rate (%)', fontsize=11, fontweight='bold')
-    ax.set_title(f'{FORECAST_PERIOD} Real GDP Growth Forecast Comparison',
-                fontsize=12, fontweight='bold', color=GOLD)
-    ax.set_xlim([6.0, 7.1])
-    ax.grid(axis='x', alpha=0.3)
-    
-    st.pyplot(fig)
-
-    st.markdown("#### Sources and definitions")
-    st.markdown(
-        f"- [RBI August 2026 monetary policy]({SOURCES['RBI']}): 6.7%\n"
-        f"- [IMF July 2026 WEO Update]({SOURCES['IMF']}): 6.4% on India's fiscal-year basis\n"
-        f"- [ADB July 2026 Outlook]({SOURCES['ADB']}): 6.6%\n"
-        f"- [World Bank April 2026 India Development Update]({SOURCES['World Bank']}): 6.6%\n"
-        f"- [OECD June 2026 Economic Outlook]({SOURCES['OECD']}): 6.3%\n\n"
-        "Institutional forecasts are not averaged with calendar-year figures."
-    )
-
-
-def show_download_page():
-    """Download results page"""
-    
-    st.subheader("📥 Download Your Results")
-    
-    if not st.session_state.forecast_data:
-        st.warning("⚠️ No custom scenario calculated yet. Go to 'Scenario Builder' first.")
-        return
-    
-    st.success("✅ Custom scenario data available for download!")
-    
-    data = st.session_state.forecast_data
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.metric("GDP Growth", f"{data['gdp']:.2f}%")
-    with col2:
-        st.metric("Generated", data['timestamp'])
-    with col3:
-        st.metric("Format", "Excel & CSV")
-    
-    st.markdown("---")
-    
-    # Summary data
-    summary_data = {
-        'Metric': ['GDP Growth', 'Agriculture', 'Manufacturing', 'Services'],
-        'Value (%)': [
-            data['gdp'],
-            data['sectors'].get('Agriculture', 0),
-            data['sectors'].get('Manufacturing', 0),
-            data['sectors'].get('Services', 0)
+        # Formula sheet
+        wf = wb.add_worksheet("Formula Sheet"); writer.sheets["Formula Sheet"] = wf
+        wf.set_column("A:A", 28); wf.set_column("B:B", 60); wf.set_column("C:C", 62)
+        wf.merge_range("A1:C1", "BINOMIAL OPTION PRICING — FORMULA SHEET", title_fmt)
+        wf.write_row("A3", ["Concept", "Formula", "Interpretation"], navy_fmt)
+        formulas = [
+            ("Step size", "dt = T / n", "Length of each binomial interval"),
+            ("Manual up/down", "u and d are supplied", "Use when up-factor/down-factor are directly given"),
+            ("CRR up factor", "u = exp(sigma*sqrt(dt))", "Volatility determines the up move"),
+            ("CRR down factor", "d = exp(-sigma*sqrt(dt)) = 1/u", "Reciprocal down move"),
+            ("Risk-neutral probability", "p = [exp((r-q)dt) - d] / (u-d)", "Uses dividend yield q when present"),
+            ("Stock node", "S(i,j)=S0 * u^j * d^(i-j)", "j is number of up moves"),
+            ("Call payoff", "max(S-K,0)", "Terminal intrinsic value"),
+            ("Put payoff", "max(K-S,0)", "Terminal intrinsic value"),
+            ("European backward induction", "V = exp(-r*dt)[p*Vu+(1-p)*Vd]", "No early exercise"),
+            ("American value", "V = max(Intrinsic, Continuation)", "Exercise whenever intrinsic exceeds continuation"),
+            ("Black-Scholes (call)", "C = S e^-qT N(d1) - K e^-rT N(d2)", "European closed-form benchmark"),
+            ("d1 / d2", "d1=[ln(S/K)+(r-q+0.5s^2)T]/(s*sqrt(T)); d2=d1-s*sqrt(T)", "As steps rise the binomial price converges to this"),
         ]
-    }
-    
-    summary_df = pd.DataFrame(summary_data)
-    
-    variables_data = {
-        'Variable': list(data['variables'].keys()),
-        'Shock': list(data['variables'].values())
-    }
-    
-    variables_df = pd.DataFrame(variables_data)
-    
-    # Create Excel file
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
-        summary_df.to_excel(writer, sheet_name='Summary', index=False)
-        variables_df.to_excel(writer, sheet_name='Variables', index=False)
-    
-    excel_buffer.seek(0)
-    
-    # Create CSV file
-    csv_buffer = io.StringIO()
-    summary_df.to_csv(csv_buffer, index=False)
-    csv_content = csv_buffer.getvalue()
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.download_button(
-            label="📊 Download Excel",
-            data=excel_buffer.getvalue(),
-            file_name=f"GDP_Forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    
-    with col2:
-        st.download_button(
-            label="📄 Download CSV",
-            data=csv_content,
-            file_name=f"GDP_Forecast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-            mime="text/csv"
-        )
-    
+        for rr, row in enumerate(formulas, 3):
+            for cc, val in enumerate(row):
+                wf.write(rr, cc, val, input_fmt if cc == 0 else note_fmt)
+
+    output.seek(0)
+    return output.getvalue()
+
+
+# =============================================================================
+# HEADER
+# =============================================================================
+html(f"""
+<div style="background:linear-gradient(90deg,{BLUE},{MID});border-radius:16px;
+     padding:22px 26px;border:1px solid rgba(255,215,0,.3);user-select:none;
+     box-shadow:0 6px 24px rgba(0,0,0,.35);margin-bottom:10px;">
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <div style="font-size:34px;-webkit-text-fill-color:initial;">📈</div>
+    <div style="flex:1;min-width:260px;">
+      <div style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:13px;
+           font-weight:700;letter-spacing:2px;">THE MOUNTAIN PATH ACADEMY · WORLD OF FINANCE</div>
+      <div style="color:#ffffff;-webkit-text-fill-color:#ffffff;font-size:26px;
+           font-weight:800;line-height:1.15;margin-top:2px;">
+           Binomial Option Pricing Model</div>
+      <div style="color:{LB};-webkit-text-fill-color:{LB};font-size:14px;margin-top:3px;">
+           Build the tree · risk-neutral valuation · European vs American exercise ·
+           inspect every node · benchmark against Black–Scholes · export the full workbook</div>
+    </div>
+    <div style="text-align:right;min-width:150px;">
+      <div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12px;">Educational Series by</div>
+      <div style="color:#ffffff;-webkit-text-fill-color:#ffffff;font-size:15px;font-weight:700;">Prof. V. Ravichandran</div>
+      <a href="{LINK_ACADEMY}" target="_blank"
+         style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:12px;text-decoration:none;">
+         themountainpathacademy.com ↗</a>
+    </div>
+  </div>
+</div>
+""")
+
+# =============================================================================
+# SIDEBAR — MODEL CONTROLS
+# =============================================================================
+with st.sidebar:
+    st.markdown("### Model Controls")
+    mode = st.selectbox("Pricing setup", [
+        "1/ Without volatility · Without yield",
+        "2/ Without volatility · With yield",
+        "3/ With volatility · With yield",
+    ])
+    option_type = st.radio("Option type", ["Call", "Put"], horizontal=True)
+    exercise = st.radio("Exercise style", ["European", "American"], horizontal=True)
+    period_choice = st.selectbox("Tree horizon", ["2-period", "3-period", "Multi-period"])
+    n = 2 if period_choice == "2-period" else 3 if period_choice == "3-period" else st.slider("Number of steps", 4, 60, 10)
+
     st.markdown("---")
-    st.subheader("📋 Data Preview")
-    
-    tab1, tab2 = st.tabs(["Summary", "Variables"])
-    
-    with tab1:
-        st.dataframe(summary_df, use_container_width=True)
-    with tab2:
-        st.dataframe(variables_df, use_container_width=True)
+    st.markdown("### Contract Inputs")
+    S0 = st.number_input("Spot price S₀", min_value=0.01, value=100.0, step=1.0)
+    K = st.number_input("Strike K", min_value=0.01, value=100.0, step=1.0)
+    T = st.number_input("Time to expiry T (years)", min_value=0.01, value=1.0, step=0.25)
+    r_pct = st.number_input("Risk-free rate r (%)", value=5.0, step=0.25)
+    r = r_pct / 100
 
+    q = 0.0
+    if mode != "1/ Without volatility · Without yield":
+        q_pct = st.number_input("Dividend / yield q (%)", value=2.0, step=0.25)
+        q = q_pct / 100
 
-if __name__ == "__main__":
-    main()
+    sigma = 0.20
+    u_input, d_input = 1.20, 0.85
+    if mode.startswith("3/"):
+        sigma_pct = st.number_input("Annual volatility σ (%)", min_value=0.01, value=20.0, step=1.0)
+        sigma = sigma_pct / 100
+    else:
+        st.markdown("### Manual Tree Factors")
+        u_input = st.number_input("Up factor u", min_value=0.0001, value=1.20, step=0.01, format="%.4f")
+        d_input = st.number_input("Down factor d", min_value=0.0001, value=0.85, step=0.01, format="%.4f")
+
+    st.markdown("---")
+    st.caption("Rates and yield are continuously compounded annual rates. "
+               "In volatility mode the app uses the Cox–Ross–Rubinstein (CRR) specification.")
+
+# =============================================================================
+# CALC
+# =============================================================================
+dt = T / n
+u, d = calc_ud(mode, sigma, dt, u_input, d_input)
+p = risk_neutral_prob(r, q, dt, u, d)
+valid = np.isfinite(p) and 0 <= p <= 1 and u > d
+
+if not valid:
+    st.error(f"No-arbitrage condition is violated for these inputs. The risk-neutral probability is "
+             f"p = {p:.4f}. Adjust u, d, r, q, T or the number of steps so that 0 ≤ p ≤ 1 and u > d.")
+    st.stop()
+
+res = build_binomial(S0, K, r, q, T, n, option_type, exercise, u, d)
+df_nodes = node_dataframe(res, n)
+
+# Black–Scholes benchmark
+bs_sigma = effective_sigma(mode, sigma, u, dt)
+bs_val = bs_price(S0, K, r, q, T, bs_sigma, option_type)
+bs_gap = res["value"] - bs_val
+
+# =============================================================================
+# SUMMARY METRICS
+# =============================================================================
+metrics = [
+    ("Binomial Value", f"₹{res['value']:,.2f}", f"{exercise} {option_type}", "Root node price", GOLD),
+    ("Black–Scholes", f"₹{bs_val:,.2f}", "European closed form", "Convergence benchmark", LB),
+    ("Risk-Neutral p", f"{p:.2%}", "up probability", "No-arbitrage weight", GOLD),
+    ("Up / Down u·d", f"{u:.3f} / {d:.3f}", "per step", ("CRR from σ" if mode.startswith("3/") else "manual factors"), LB),
+    ("Δt", f"{res['dt']:.4f}", "years / step", f"T / n = {T:.2f} / {n}", TXT),
+    ("Early-Exercise", f"{int(res['early'].sum())}", "nodes", ("American only" if exercise == "American" else "European: none"), AMBER),
+]
+cols = st.columns(6)
+for c, (label, val, sub, note, col) in zip(cols, metrics):
+    with c:
+        html(f"""
+        <div class="mp-card" style="text-align:left;padding:15px 16px;min-height:118px;">
+          <div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:11px;
+               font-weight:600;text-transform:uppercase;letter-spacing:1px;">{label}</div>
+          <div style="color:{col};-webkit-text-fill-color:{col};font-size:23px;
+               font-weight:800;margin:4px 0;">{val}</div>
+          <div style="color:{LB};-webkit-text-fill-color:{LB};font-size:11.5px;">{sub}</div>
+          <div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:11.5px;
+               margin-top:5px;opacity:.85;">{note}</div>
+        </div>""")
+
+# =============================================================================
+# TABS
+# =============================================================================
+tabs = st.tabs([
+    "🎓 Learn",
+    "🌳 Price the Option",
+    "🔎 Node Analysis",
+    "📊 Analytics",
+    "🧮 Worked Example",
+    "⬇️ Excel Export",
+])
+
+# -----------------------------------------------------------------------------
+# TAB 1 — LEARN
+# -----------------------------------------------------------------------------
+with tabs[0]:
+    c1, c2 = st.columns([1.15, .85])
+    with c1:
+        html(f"""
+        <div class="mp-card">
+          <div style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:17px;
+               font-weight:700;margin-bottom:8px;">How the binomial model works</div>
+          <div class="teach-card"><b class="gold">1 · Build the stock-price tree.</b><br>
+            At every interval the stock moves up by <span class="gold">u</span> or down by
+            <span class="gold">d</span>. A node after <i>j</i> up moves at step <i>i</i> is
+            <b>S(i,j)=S₀·uʲ·d⁽ⁱ⁻ʲ⁾</b>.</div>
+          <div class="teach-card"><b class="gold">2 · Move to the risk-neutral world.</b><br>
+            The expected growth of the underlying after yield is matched using
+            <b>p = [e<sup>(r−q)Δt</sup> − d] / (u − d)</b>.</div>
+          <div class="teach-card"><b class="gold">3 · Calculate terminal payoff.</b><br>
+            Call: <b>max(S−K, 0)</b> &nbsp;·&nbsp; Put: <b>max(K−S, 0)</b>.</div>
+          <div class="teach-card"><b class="gold">4 · Work backwards.</b><br>
+            European value = discounted risk-neutral expected next-node value. American value =
+            <b>max(intrinsic, continuation)</b> at every node.</div>
+        </div>
+        <div class="mp-card" style="border-color:rgba(255,215,0,.42);">
+          <div style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:15px;font-weight:700;margin-bottom:6px;">
+            The three setups in this lab</div>
+          <div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:14px;line-height:1.65;">
+            <b>Setup 1 — no volatility, no yield:</b> you directly specify <span class="gold">u</span> and
+            <span class="gold">d</span>; q = 0.<br>
+            <b>Setup 2 — no volatility, with yield:</b> you specify u, d and q.<br>
+            <b>Setup 3 — volatility with yield:</b> the app computes u = e<sup>σ√Δt</sup> and
+            d = e<sup>−σ√Δt</sup> using CRR, then folds q into the risk-neutral probability.</div>
+        </div>
+        <div class="mp-card" style="border-color:rgba(173,216,230,.42);background:linear-gradient(135deg,{CARD},#16203c);">
+          <div style="color:{LB};-webkit-text-fill-color:{LB};font-size:14px;font-weight:700;margin-bottom:4px;">
+            Teaching point — what p really is</div>
+          <div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:13.5px;line-height:1.6;">
+            <b>p</b> is <i>not</i> a forecast of the real-world chance the stock rises. It is the probability
+            that makes discounted expected values consistent with <b>no-arbitrage pricing</b>. As the number
+            of steps grows, the CRR binomial price converges to the <span class="lb">Black–Scholes</span>
+            closed form — shown live in the Analytics tab.</div>
+        </div>
+        """)
+    with c2:
+        html(f"""<div class="mp-card"><div style="color:{GOLD};-webkit-text-fill-color:{GOLD};
+             font-size:16px;font-weight:700;margin-bottom:6px;">Formula reference</div></div>""")
+        ref = ASSETS / ("binomial_key_formulae_with_yield.png" if q > 0 else "binomial_key_formulae_no_yield.png")
+        if ref.exists():
+            st.image(str(ref), width="stretch")
+        st.caption("Formula reference adapted directly from the attached teaching deck.")
+
+# -----------------------------------------------------------------------------
+# TAB 2 — PRICE THE OPTION
+# -----------------------------------------------------------------------------
+with tabs[1]:
+    # Binomial vs Black–Scholes comparison card
+    tol = max(0.01, 0.005 * max(bs_val, 1.0))
+    if exercise == "European":
+        gap_col = GRN if abs(bs_gap) < tol else AMBER
+        verdict = ("Converged — matches Black–Scholes closely" if abs(bs_gap) < tol
+                   else "Discretisation gap — raise the number of steps to converge")
+        note_line = (f"Both price the same European {option_type.lower()}. The binomial value approaches "
+                     f"Black–Scholes as steps → ∞ (currently n = {n}).")
+    else:
+        gap_col = LB
+        verdict = "American vs European benchmark — early exercise can add value"
+        note_line = (f"Black–Scholes prices the <b>European</b> option. For an American {option_type.lower()} the "
+                     f"binomial price is ≥ this benchmark; the difference is the early-exercise premium.")
+    html(f"""
+    <div class="mp-card" style="border-color:{gap_col};">
+      <div style="display:flex;flex-wrap:wrap;gap:26px;align-items:flex-end;justify-content:space-between;">
+        <div><div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12px;">Binomial ({exercise})</div>
+          <div style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:30px;font-weight:800;">₹{res['value']:,.4f}</div></div>
+        <div><div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12px;">Black–Scholes (European)</div>
+          <div style="color:{LB};-webkit-text-fill-color:{LB};font-size:30px;font-weight:800;">₹{bs_val:,.4f}</div></div>
+        <div><div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12px;">Binomial − BS</div>
+          <div style="color:{gap_col};-webkit-text-fill-color:{gap_col};font-size:30px;font-weight:800;">{bs_gap:+.4f}</div></div>
+        <div><div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12px;">σ used for BS</div>
+          <div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:30px;font-weight:800;">{bs_sigma:.2%}</div></div>
+      </div>
+      <div style="margin-top:10px;color:{gap_col};-webkit-text-fill-color:{gap_col};font-weight:700;font-size:14px;">{verdict}</div>
+      <div style="margin-top:4px;color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:12.5px;line-height:1.5;">{note_line}</div>
+    </div>
+    """)
+
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:16px;margin:6px 0;'>Stock-price tree</div>",
+                unsafe_allow_html=True)
+    if n <= 15:
+        st.plotly_chart(tree_figure(res["stock"], n, "Underlying Stock-Price Tree", early=None),
+                        width="stretch")
+    else:
+        st.info("For clarity, the graphical tree is displayed for up to 15 steps. The full multi-period "
+                "values remain available in Node Analysis and Excel.")
+        st.plotly_chart(tree_figure(res["stock"], 15, "First 15 Steps — Stock-Price Tree", early=None),
+                        width="stretch")
+
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:16px;margin:6px 0;'>Option-value tree</div>",
+                unsafe_allow_html=True)
+    if n <= 15:
+        st.plotly_chart(tree_figure(res["option"], n, f"{exercise} {option_type} — Option Value Tree",
+                                    early=res["early"] if exercise == "American" else None),
+                        width="stretch")
+    else:
+        st.dataframe(df_nodes[df_nodes["Step"] <= 15].style.format(
+            {"Stock Price": "{:,.2f}", "Intrinsic Payoff": "{:,.2f}",
+             "Continuation Value": "{:,.2f}", "Option Value": "{:,.2f}"}),
+            width="stretch", height=520)
+    if exercise == "American":
+        st.caption("★ marks a node where immediate exercise is optimal.")
+
+# -----------------------------------------------------------------------------
+# TAB 3 — NODE ANALYSIS
+# -----------------------------------------------------------------------------
+with tabs[2]:
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:16px;'>Every node, fully explained</div>",
+                unsafe_allow_html=True)
+    step_filter = st.slider("Inspect step", 0, n, n)
+    show = df_nodes[df_nodes["Step"] == step_filter].copy()
+    st.dataframe(show.style.format(
+        {"Stock Price": "{:,.4f}", "Intrinsic Payoff": "{:,.4f}",
+         "Continuation Value": "{:,.4f}", "Option Value": "{:,.4f}"}),
+        width="stretch")
+    if step_filter < n:
+        selected_up = st.selectbox("Choose node by number of up moves", show["Up Moves"].tolist())
+        row = show[show["Up Moves"] == selected_up].iloc[0]
+        html(f"""
+        <div class="formula-box">
+        <b class="gold">Node interpretation — step {int(row['Step'])}, up moves {int(row['Up Moves'])}</b><br><br>
+        Stock price = <b>₹{row['Stock Price']:,.4f}</b><br>
+        Intrinsic payoff = <b>₹{row['Intrinsic Payoff']:,.4f}</b><br>
+        Continuation value = <b>₹{row['Continuation Value']:,.4f}</b><br>
+        Final node value = <b class="gold">₹{row['Option Value']:,.4f}</b><br>
+        Early exercise? <b>{'Yes' if row['Early Exercise'] else 'No'}</b>
+        </div>
+        """)
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:15px;margin-top:10px;'>Full calculation table</div>",
+                unsafe_allow_html=True)
+    st.dataframe(df_nodes.style.format(
+        {"Stock Price": "{:,.4f}", "Intrinsic Payoff": "{:,.4f}",
+         "Continuation Value": "{:,.4f}", "Option Value": "{:,.4f}"}),
+        width="stretch", height=520)
+
+# -----------------------------------------------------------------------------
+# TAB 4 — ANALYTICS
+# -----------------------------------------------------------------------------
+with tabs[3]:
+    c1, c2 = st.columns(2)
+    with c1:
+        st.plotly_chart(payoff_figure(S0, K, res["value"], option_type), width="stretch")
+    with c2:
+        max_conv = min(80, max(30, n))
+        st.plotly_chart(convergence_figure(S0, K, r, q, T, option_type, exercise, mode, sigma,
+                                            u_input, d_input, bs_val=bs_val, max_n=max_conv),
+                        width="stretch")
+    if exercise == "European":
+        html(f"""<div class="mp-card" style="border-color:rgba(173,216,230,.4);">
+          <div style="color:{LB};-webkit-text-fill-color:{LB};font-weight:700;font-size:14px;">
+            Convergence to Black–Scholes</div>
+          <div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:13.5px;line-height:1.6;margin-top:4px;">
+            The dashed line is the closed-form Black–Scholes price
+            <b class="lb">₹{bs_val:,.4f}</b>. At the current <b>n = {n}</b> steps the binomial value is
+            <b class="gold">₹{res['value']:,.4f}</b> — a gap of <b>{bs_gap:+.4f}</b>. Increase the step
+            count in the sidebar and watch the binomial estimate settle onto the benchmark.</div>
+        </div>""")
+
+    if exercise == "American":
+        early_df = df_nodes[df_nodes["Early Exercise"]].copy()
+        st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:15px;'>Early-exercise map</div>",
+                    unsafe_allow_html=True)
+        if len(early_df):
+            st.dataframe(early_df[["Step", "Up Moves", "Stock Price", "Intrinsic Payoff",
+                                   "Continuation Value", "Option Value"]].style.format(
+                {"Stock Price": "{:,.2f}", "Intrinsic Payoff": "{:,.2f}",
+                 "Continuation Value": "{:,.2f}", "Option Value": "{:,.2f}"}),
+                width="stretch")
+        else:
+            st.success("No early-exercise node is optimal for this parameter set.")
+
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:15px;margin-top:6px;'>Sensitivity: option value vs spot price</div>",
+                unsafe_allow_html=True)
+    spots = np.linspace(max(1, S0 * .55), S0 * 1.45, 31)
+    vals = [build_binomial(s, K, r, q, T, n, option_type, exercise, u, d)["value"] for s in spots]
+    fig = go.Figure(go.Scatter(x=spots, y=vals, mode="lines", line=dict(color=GOLD, width=3),
+                               name="Option value"))
+    fig.add_vline(x=S0, line_dash="dot", line_color=LB, annotation_text="Current spot",
+                  annotation_font_color=LB)
+    fig = plotly_theme(fig, height=420, legend=False)
+    fig.update_xaxes(title="Spot price")
+    fig.update_yaxes(title="Option value")
+    st.plotly_chart(fig, width="stretch")
+
+# -----------------------------------------------------------------------------
+# TAB 5 — WORKED EXAMPLE
+# -----------------------------------------------------------------------------
+with tabs[4]:
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:16px;'>Follow the current example from inputs to price</div>",
+                unsafe_allow_html=True)
+    html(f"""
+    <div class="teach-card"><b class="gold">Step 1 — Divide time:</b> Δt = T/n = {T:.4f}/{n} = <b>{res['dt']:.6f}</b>.</div>
+    <div class="teach-card"><b class="gold">Step 2 — Tree factors:</b> u = <b>{u:.6f}</b>, d = <b>{d:.6f}</b>.
+        {'These are computed from volatility using CRR.' if mode.startswith('3/') else 'These are directly supplied by the user.'}</div>
+    <div class="teach-card"><b class="gold">Step 3 — Risk-neutral probability:</b>
+        p = [e<sup>(r−q)Δt</sup>−d]/(u−d) = <b>{p:.6f}</b>; 1−p = <b>{1-p:.6f}</b>.</div>
+    <div class="teach-card"><b class="gold">Step 4 — Terminal payoff:</b>
+        compute {'max(S−K,0)' if option_type == 'Call' else 'max(K−S,0)'} at each expiry node.</div>
+    <div class="teach-card"><b class="gold">Step 5 — Backward induction:</b>
+        discount the risk-neutral expected next-node values at e<sup>−rΔt</sup> = <b>{res['disc']:.6f}</b>{'; compare with intrinsic value at every node for the American option.' if exercise == 'American' else '.'}</div>
+    <div class="teach-card" style="border-left-color:{LB};"><b class="lb">Result:</b>
+        {exercise} {option_type} value at the root = <span class="gold"><b>₹{res['value']:,.4f}</b></span>
+        &nbsp;·&nbsp; Black–Scholes European benchmark = <span class="lb"><b>₹{bs_val:,.4f}</b></span>
+        &nbsp;·&nbsp; gap <b>{bs_gap:+.4f}</b>.</div>
+    """)
+    if n <= 3:
+        st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:15px;'>Classroom-ready small tree</div>",
+                    unsafe_allow_html=True)
+        display = df_nodes.copy()
+        display["Node"] = display.apply(lambda x: f"t={int(x['Step'])}, U={int(x['Up Moves'])}", axis=1)
+        st.dataframe(display[["Node", "Stock Price", "Intrinsic Payoff", "Continuation Value",
+                              "Option Value", "Early Exercise"]].style.format(
+            {"Stock Price": "{:,.2f}", "Intrinsic Payoff": "{:,.2f}",
+             "Continuation Value": "{:,.2f}", "Option Value": "{:,.2f}"}),
+            width="stretch")
+
+# -----------------------------------------------------------------------------
+# TAB 6 — EXCEL EXPORT
+# -----------------------------------------------------------------------------
+with tabs[5]:
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:16px;'>Download the complete teaching workbook</div>",
+                unsafe_allow_html=True)
+    html(f"""<div class="mp-card"><div style="color:{TXT};-webkit-text-fill-color:{TXT};font-size:14px;line-height:1.6;">
+         The workbook contains <b class="gold">Summary &amp; Inputs</b> (now including the Black–Scholes
+         benchmark and convergence gap), <b class="gold">Node Details</b>, <b class="gold">Stock / Option /
+         Intrinsic / Continuation Trees</b>, and a <b class="gold">Formula Sheet</b>. American-option
+         early-exercise rows are highlighted.</div></div>""")
+    inputs = {"Option Type": option_type, "Exercise": exercise, "S0": S0, "K": K, "r": r, "q": q,
+              "T": T, "sigma": sigma, "u": u, "d": d}
+    excel_bytes = make_excel(inputs, res, n, mode, bs_val, bs_sigma)
+    st.download_button("⬇ Download formatted Excel workbook", data=excel_bytes,
+                       file_name=f"MPA_Binomial_{exercise}_{option_type}_{n}Step.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                       width="stretch")
+    st.markdown(f"<div style='color:{GOLD};font-weight:700;font-size:15px;margin-top:8px;'>Export preview</div>",
+                unsafe_allow_html=True)
+    st.dataframe(df_nodes.head(min(30, len(df_nodes))).style.format(
+        {"Stock Price": "{:,.3f}", "Intrinsic Payoff": "{:,.3f}",
+         "Continuation Value": "{:,.3f}", "Option Value": "{:,.3f}"}),
+        width="stretch")
+
+# =============================================================================
+# FOOTER
+# =============================================================================
+html(f"""
+<div style="margin-top:22px;background:linear-gradient(90deg,{BLUE},{MID});border-radius:16px;
+     padding:20px 26px;border:1px solid rgba(255,215,0,.3);user-select:none;">
+  <div style="display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center;">
+    <div>
+      <div style="color:{GOLD};-webkit-text-fill-color:{GOLD};font-size:15px;font-weight:800;">
+        The Mountain Path — World of Finance</div>
+      <div style="color:{LB};-webkit-text-fill-color:{LB};font-size:12.5px;margin-top:2px;">
+        Bridging Theory with Practice · Excellence in Financial Education</div>
+      <div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:11.5px;margin-top:6px;">
+        Prof. V. Ravichandran · Visiting Professor &amp; Professor of Practice at Leading Business Schools ·
+        28+ Years Corporate Finance &amp; Banking</div>
+    </div>
+    <div style="text-align:right;display:flex;flex-direction:column;gap:6px;">
+      <a href="{LINK_ACADEMY}" target="_blank" style="color:{GOLD};-webkit-text-fill-color:{GOLD};
+         font-weight:700;font-size:13px;text-decoration:none;">🌐 themountainpathacademy.com ↗</a>
+      <a href="{LINK_LI}" target="_blank" style="color:{GOLD};-webkit-text-fill-color:{GOLD};
+         font-weight:700;font-size:13px;text-decoration:none;">in · LinkedIn ↗</a>
+      <a href="{LINK_GH}" target="_blank" style="color:{GOLD};-webkit-text-fill-color:{GOLD};
+         font-weight:700;font-size:13px;text-decoration:none;">⌥ GitHub ↗</a>
+    </div>
+  </div>
+  <div style="color:{MUTED};-webkit-text-fill-color:{MUTED};font-size:11px;margin-top:12px;
+       border-top:1px solid rgba(255,255,255,.1);padding-top:8px;">
+    Educational content only — not investment advice. Figures are illustrative and intended for
+    classroom and self-study use.</div>
+</div>
+""")
